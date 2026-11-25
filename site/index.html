@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>Daily Diff: a few good reads for engineers, every day</title>
+<meta name="description" content="A few things worth reading today, picked for the topics you choose. No account, no email, no feed to scroll.">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#F6F7F9" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<meta property="og:title" content="Daily Diff">
+<meta property="og:description" content="A few things worth reading today, picked for the topics you choose. No account, no email, no noise.">
+<meta property="og:type" content="website">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preload" href="assets/fonts/InstrumentSans.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/fonts/MartianMono.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/app.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="page">
+  <header class="bar">
+    <a class="mark" href="./"><span class="mark-plus" aria-hidden="true">+</span>daily diff</a>
+    <button class="text-button" id="edit-topics" type="button" hidden>Topics</button>
+  </header>
+
+  <main id="main" tabindex="-1">
+    <section id="view-loading" class="status" aria-live="polite">
+      <p class="status-text" id="loading-text">Loading today's reads.</p>
+    </section>
+
+    <section id="view-error" class="status" hidden>
+      <h1 class="status-title">Couldn't load today's reads.</h1>
+      <p class="status-text" id="error-text">Check your connection, then try again.</p>
+      <button class="primary" id="retry" type="button">Try again</button>
+    </section>
+
+    <section id="view-setup" hidden>
+      <form id="setup-form" novalidate>
+        <h1 class="setup-title">What do you want to read about?</h1>
+        <p class="lede">Pick a few topics. Each day you get only the best reads in them, nothing else.</p>
+        <fieldset class="topics">
+          <legend class="visually-hidden">Topics</legend>
+          <div class="topic-grid" id="topic-grid"></div>
+        </fieldset>
+        <fieldset class="amount">
+          <legend>How many reads a day?</legend>
+          <div class="segmented" id="amount"></div>
+        </fieldset>
+        <p class="form-error" id="setup-error" role="alert" hidden>Pick at least one topic.</p>
+        <div class="setup-actions">
+          <button class="primary" type="submit" id="setup-save">Show my reads</button>
+          <button class="text-button" type="button" id="setup-cancel" hidden>Cancel</button>
+        </div>
+        <p class="fine">No account and no email. Your topics are saved only in this browser.</p>
+      </form>
+    </section>
+
+    <section id="view-today" hidden>
+      <div class="today-head">
+        <p class="date" id="today-date"></p>
+        <h1 class="diffstat" id="diffstat"><span class="add" id="stat-add"></span> <span class="del" id="stat-del"></span></h1>
+        <div class="diffbar" id="diffbar" aria-hidden="true"></div>
+        <p class="summary" id="summary"></p>
+        <p class="headline" id="headline" hidden></p>
+      </div>
+      <p class="notice" id="notice" role="status" hidden></p>
+      <ol class="reads" id="reads"></ol>
+      <div class="empty" id="empty" hidden>
+        <p>Nothing in your topics made the cut today.</p>
+        <div class="empty-actions">
+          <button class="primary" type="button" id="empty-all">Show today's best from every topic</button>
+          <button class="text-button" type="button" id="empty-edit">Change topics</button>
+        </div>
+      </div>
+      <div class="after" id="after">
+        <p class="done" id="done" hidden></p>
+        <button class="text-button" type="button" id="more" hidden></button>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot" id="foot">
+    <p id="foot-sources">Picked from Hacker News, Lobsters, GitHub, Medium, Substack, Mastodon, YouTube and dozens of engineering blogs.</p>
+    <p>No account, no email, no tracking. Your topics and what you've read stay in this browser.</p>
+    <p class="keys">Keys: <kbd>j</kbd> <kbd>k</kbd> move, <kbd>o</kbd> open, <kbd>x</kbd> mark read.</p>
+  </footer>
+</div>
+<noscript><p class="noscript">Daily Diff needs JavaScript to pick reads for your topics.</p></noscript>
+</body>
+</html>
