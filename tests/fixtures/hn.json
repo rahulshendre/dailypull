@@ -1,0 +1,31 @@
+{
+ "hits": [
+  {
+   "objectID": "50637220",
+   "title": "The matrix multiplication exponent is nine fourths [pdf]",
+   "url": "https://github.com/openai/math/blob/main/preprints/The-matrix-multiplication-exponent-is-nine-fourths-November-24-2026/paper.pdf",
+   "points": 923,
+   "num_comments": 522,
+   "created_at_i": 1795569566,
+   "story_text": null
+  },
+  {
+   "objectID": "50638032",
+   "title": "Button Sounds \u2013 collection of professionally-recorded button clicks and presses",
+   "url": "https://buttons.joshwcomeau.com/",
+   "points": 751,
+   "num_comments": 120,
+   "created_at_i": 1795576987,
+   "story_text": null
+  },
+  {
+   "objectID": "50633922",
+   "title": "Ternary Bonsai 2.5 27B",
+   "url": "https://prismml.com/news/bonsai-2-5-27b",
+   "points": 517,
+   "num_comments": 170,
+   "created_at_i": 1795550883,
+   "story_text": null
+  }
+ ]
+}

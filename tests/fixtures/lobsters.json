@@ -1,0 +1,43 @@
+[
+ {
+  "short_id_url": "https://lobste.rs/s/srb0dp",
+  "created_at": "2026-11-25T00:20:29.600-06:00",
+  "title": "Marginalia Search, Money, C++, Rust, AI, stuff",
+  "url": "https://www.marginalia.nu/log/a_141_marginalia_update/",
+  "score": 77,
+  "comment_count": 16,
+  "description_plain": "",
+  "tags": [
+   "c++",
+   "java",
+   "performance"
+  ]
+ },
+ {
+  "short_id_url": "https://lobste.rs/s/lyyksp",
+  "created_at": "2026-11-25T07:09:22.097-06:00",
+  "title": "Optimizing Rustc's next trait solver",
+  "url": "https://donsz.nl/blog/optimizing-rustcs-next-trait-solver",
+  "score": 25,
+  "comment_count": 2,
+  "description_plain": "",
+  "tags": [
+   "compilers",
+   "performance",
+   "rust"
+  ]
+ },
+ {
+  "short_id_url": "https://lobste.rs/s/em9zdb",
+  "created_at": "2026-11-24T17:14:50.733-06:00",
+  "title": "Pokemon Childhood Version: A romhack where Mew is under the truck",
+  "url": "https://wheybags.com/blog/pokemon_childhood_version.html",
+  "score": 64,
+  "comment_count": 5,
+  "description_plain": "",
+  "tags": [
+   "assembly",
+   "games"
+  ]
+ }
+]

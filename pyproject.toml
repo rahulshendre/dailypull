@@ -1,0 +1,10 @@
+[project]
+name = "daily-diff"
+version = "1.0.0"
+description = "A daily page of a few good reads for engineers. No login, no email, no noise."
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+addopts = "-q"

@@ -1,0 +1,41 @@
+[
+ {
+  "title": "The Price You Pay for Passion",
+  "url": "https://dev.to/thethirdcup/the-price-you-pay-for-passion-3h5l",
+  "description": "Over the past three weeks, I've written three rather demanding articles. I still want to push a...",
+  "positive_reactions_count": 85,
+  "comments_count": 45,
+  "published_at": "2026-11-25T08:29:06Z",
+  "tag_list": [
+   "discuss",
+   "mentalhealth"
+  ]
+ },
+ {
+  "title": "The mental toll of working in tech",
+  "url": "https://dev.to/klaudiagrz/the-mental-toll-of-working-in-tech-2m6k",
+  "description": "Hi folks! \ud83d\udc4b It's been a while since I last wrote here. As some of you may remember, some time ago I...",
+  "positive_reactions_count": 48,
+  "comments_count": 13,
+  "published_at": "2026-11-25T14:05:36Z",
+  "tag_list": [
+   "mentalhealth",
+   "discuss",
+   "career"
+  ]
+ },
+ {
+  "title": "Lazy Senior Dev Mode Made My App Smaller. Was It Better?",
+  "url": "https://dev.to/necoz/lazy-senior-dev-mode-made-my-app-smaller-was-it-better-90i",
+  "description": "Raise your hand if you've been curious about Ponytail. \ud83d\ude4b Same spec, same model, same prompt. One...",
+  "positive_reactions_count": 63,
+  "comments_count": 4,
+  "published_at": "2026-11-25T04:03:43Z",
+  "tag_list": [
+   "ai",
+   "webdev",
+   "claude",
+   "necoz"
+  ]
+ }
+]
