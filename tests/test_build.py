@@ -85,7 +85,7 @@ def test_build_falls_back_to_ranking_when_claude_fails(tmp_path, fake_sources, m
 
 def test_build_uses_claude_picks_when_available(tmp_path, fake_sources, monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
-    monkeypatch.setenv("DD_MODEL", "claude-opus-5-5")
+    monkeypatch.setenv("DP_MODEL", "claude-opus-5-5")
 
     def fake_claude(cands, model, client=None):
         return {"headline": "Big day", "picks": [
@@ -126,7 +126,7 @@ def test_frontend_topics_match_pipeline():
 
 def test_empty_model_variable_uses_default(tmp_path, fake_sources, monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
-    monkeypatch.setenv("DD_MODEL", "")
+    monkeypatch.setenv("DP_MODEL", "")
     seen = {}
 
     def fake_claude(cands, model, client=None):
@@ -136,3 +136,14 @@ def test_empty_model_variable_uses_default(tmp_path, fake_sources, monkeypatch):
     monkeypatch.setattr(curate, "ask_claude", fake_claude)
     assert build.main(["--out", str(tmp_path / "d"), "--history", str(tmp_path / "h.json")]) == 0
     assert seen["model"] == config.DEFAULT_MODEL
+
+
+def test_excerpt_drops_links_boilerplate_and_newsletter_intros():
+    art = lambda text: {"text": text, "kind": "article"}
+    assert build.excerpt(art("https://archive.ph/pcUgy")) == ""
+    assert build.excerpt(art("Too short to help.")) == ""
+    assert build.excerpt(art("Why the liveness probe killed every pod at once. Continue reading on Stackademic »")) \
+        == "Why the liveness probe killed every pod at once."
+    out = build.excerpt(art("word " * 100))
+    assert out.endswith("…") and len(out) <= 201 and not out.endswith(" …")
+    assert build.excerpt({"text": "#812 November 24 Read on the Web JavaScript Weekly news and more", "kind": "newsletter"}) == ""

@@ -73,7 +73,7 @@ button { font: inherit; color: inherit; }
 /* Header */
 .bar { display: flex; align-items: center; justify-content: space-between; min-height: 44px; margin-bottom: var(--s7); }
 .mark { font: 600 15px/1 var(--mono); letter-spacing: -0.02em; text-decoration: none; }
-.mark-plus { color: var(--add); margin-right: 0.35em; }
+.mark-arrow { color: var(--add); margin-right: 0.35em; }
 
 .text-button {
   min-height: 44px; padding: 0 var(--s1); border: 0; background: none; cursor: pointer;
@@ -129,17 +129,7 @@ fieldset { margin: 0; padding: 0; border: 0; min-width: 0; }
 
 /* Today */
 .today-head { margin-bottom: var(--s6); }
-.date { margin: 0 0 var(--s2); color: var(--muted); font-size: 15px; }
-.diffstat {
-  margin: 0; font: 600 clamp(40px, 7vw + 16px, 60px)/1.05 var(--mono);
-  letter-spacing: -0.04em; font-variant-numeric: tabular-nums;
-}
-.diffstat .add { color: var(--add); }
-.diffstat .del { color: var(--del); margin-left: 0.25em; }
-.diffbar { display: flex; gap: 3px; margin: var(--s3) 0 var(--s4); }
-.diffbar span { width: 10px; height: 10px; border-radius: 2px; background: var(--del); }
-.diffbar span.k { background: var(--add); }
-.summary { margin: 0; color: var(--muted); }
+.date { margin: 0; font: 600 clamp(28px, 3vw + 18px, 36px)/1.15 var(--sans); letter-spacing: -0.02em; }
 .headline { margin: var(--s4) 0 0; padding-left: var(--s3); border-left: 2px solid var(--line); max-width: 60ch; }
 
 .notice { margin: 0 0 var(--s5); padding: var(--s3) var(--s4); border: 1px solid var(--line); border-radius: 8px; background: var(--surface); font-size: 15px; }

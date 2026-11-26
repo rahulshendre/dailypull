@@ -18,7 +18,7 @@ log = logging.getLogger(__name__)
 # Models that accept server-side refusal fallbacks (`fallbacks: "default"`).
 FALLBACK_MODELS = {"claude-opus-5-5", "claude-opus-5", "claude-sonnet-5-5", "claude-fable-5-2", "claude-fable-5-1"}
 
-SYSTEM = f"""You are the editor of Daily Diff, a free web page that shows software engineers a few things worth reading each day. Readers choose topics and get only the best few items in those topics, so your job is to cut noise.
+SYSTEM = f"""You are the editor of Daily Pull, a free web page that shows software engineers a few things worth reading each day. Readers choose topics and get only the best few items in those topics, so your job is to cut noise.
 
 Topics (use these ids): {json.dumps(config.TOPICS)}
 

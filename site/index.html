@@ -5,12 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
 <meta name="referrer" content="strict-origin-when-cross-origin">
-<title>Daily Diff: a few good reads for engineers, every day</title>
+<title>Daily Pull: a few good reads for engineers, every day</title>
 <meta name="description" content="A few things worth reading today, picked for the topics you choose. No account, no email, no feed to scroll.">
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#F6F7F9" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
-<meta property="og:title" content="Daily Diff">
+<meta property="og:title" content="Daily Pull">
 <meta property="og:description" content="A few things worth reading today, picked for the topics you choose. No account, no email, no noise.">
 <meta property="og:type" content="website">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
@@ -23,7 +23,7 @@
 <a class="skip" href="#main">Skip to content</a>
 <div class="page">
   <header class="bar">
-    <a class="mark" href="./"><span class="mark-plus" aria-hidden="true">+</span>daily diff</a>
+    <a class="mark" href="./"><span class="mark-arrow" aria-hidden="true">↓</span>daily pull</a>
     <button class="text-button" id="edit-topics" type="button" hidden>Topics</button>
   </header>
 
@@ -61,10 +61,7 @@
 
     <section id="view-today" hidden>
       <div class="today-head">
-        <p class="date" id="today-date"></p>
-        <h1 class="diffstat" id="diffstat"><span class="add" id="stat-add"></span> <span class="del" id="stat-del"></span></h1>
-        <div class="diffbar" id="diffbar" aria-hidden="true"></div>
-        <p class="summary" id="summary"></p>
+        <h1 class="date" id="today-date"></h1>
         <p class="headline" id="headline" hidden></p>
       </div>
       <p class="notice" id="notice" role="status" hidden></p>
@@ -89,6 +86,6 @@
     <p class="keys">Keys: <kbd>j</kbd> <kbd>k</kbd> move, <kbd>o</kbd> open, <kbd>x</kbd> mark read.</p>
   </footer>
 </div>
-<noscript><p class="noscript">Daily Diff needs JavaScript to pick reads for your topics.</p></noscript>
+<noscript><p class="noscript">Daily Pull needs JavaScript to pick reads for your topics.</p></noscript>
 </body>
 </html>

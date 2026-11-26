@@ -16,12 +16,11 @@
   };
   const AMOUNTS = [1, 3, 5];
   const DEFAULT_AMOUNT = 3;
-  const PREFS_KEY = "dd.prefs.v1";
-  const READ_KEY = "dd.read.v1";
+  const PREFS_KEY = "dp.prefs.v1";
+  const READ_KEY = "dp.read.v1";
   const DATA_URL = "data/today.json";
   const LATE_AFTER_MS = 3 * 60 * 60 * 1000;
   const KEEP_READ_MS = 30 * 24 * 60 * 60 * 1000;
-  const BAR_CELLS = 24;
 
   const $ = (id) => document.getElementById(id);
   const VIEWS = ["loading", "error", "setup", "today"];
@@ -97,7 +96,6 @@
     }
   }
 
-  const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
   // ---------- data ----------
 
@@ -172,7 +170,7 @@
     $("setup-error").hidden = true;
     $("setup-cancel").hidden = !prefs;
     $("setup-save").textContent = prefs ? "Save topics" : "Show my reads";
-    document.title = "Pick your topics: Daily Diff";
+    document.title = "Pick your topics: Daily Pull";
     show("setup");
   }
 
@@ -221,13 +219,6 @@
   function isLate() {
     const t = Date.parse(data.next_refresh_at);
     return !Number.isNaN(t) && Date.now() > t + LATE_AFTER_MS;
-  }
-
-  function renderBar(kept, total) {
-    const bar = $("diffbar");
-    bar.textContent = "";
-    const keptCells = kept ? Math.max(1, Math.round((BAR_CELLS * kept) / Math.max(total, 1))) : 0;
-    for (let i = 0; i < BAR_CELLS; i++) bar.append(el("span", i < keptCells ? "k" : ""));
   }
 
   function topicLabel(p) {
@@ -284,17 +275,8 @@
   function renderToday() {
     const all = pool();
     const visible = all.slice(0, prefs.count + extra);
-    const considered = Math.max(Number(data.considered) || 0, visible.length);
-    const skipped = considered - visible.length;
 
     $("today-date").textContent = formatDate(data.date);
-    $("stat-add").textContent = `+${visible.length}`;
-    $("stat-del").textContent = `-${skipped}`;
-    $("diffstat").setAttribute("aria-label", `${plural(visible.length, "read")} kept, ${skipped} skipped`);
-    renderBar(visible.length, considered);
-    $("summary").textContent = visible.length
-      ? `${plural(visible.length, "read")} for you today. ${skipped} other posts skipped.`
-      : `${considered} posts checked today.`;
 
     const headline = $("headline");
     headline.textContent = data.headline || "";
@@ -328,7 +310,7 @@
     const time = Number.isNaN(refresh) ? "" : new Date(refresh).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     $("foot-sources").textContent = `${curated} from ${data.source_count || "dozens of"} sources: Hacker News, Lobsters, GitHub, Medium, Substack, Mastodon, YouTube and engineering blogs.${time ? ` A new list arrives every day around ${time}.` : ""}`;
 
-    document.title = `+${visible.length} today: Daily Diff`;
+    document.title = `${visible.length} ${visible.length === 1 ? "read" : "reads"} today: Daily Pull`;
     show("today");
     updateDone();
   }

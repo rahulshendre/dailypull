@@ -18,7 +18,7 @@ import httpx
 
 from . import config
 
-USER_AGENT = "DailyDiff/1.0 (+https://github.com/rahulshendre/daily-diff)"
+USER_AGENT = "DailyPull/1.0 (+https://github.com/rahulshendre/dailypull)"
 
 
 def clean_text(text: str, limit: int = 300) -> str:

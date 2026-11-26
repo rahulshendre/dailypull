@@ -134,8 +134,7 @@ def test_shows_best_reads_for_chosen_topics(page, site):
     page.goto(site.url)
     setup(page)
     assert titles(page) == ["AI read 0", "AI read 1", "AI read 2"]
-    assert page.inner_text("#stat-add") == "+3"
-    assert page.inner_text("#stat-del") == "-297"
+    assert page.locator("h1#today-date").inner_text().strip() != ""
     assert page.inner_text("#headline") == "The headline of the day."
     link = page.locator("#reads .read h2 a").first
     assert link.get_attribute("target") == "_blank"

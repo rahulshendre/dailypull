@@ -5,7 +5,7 @@ Usage:
 
 Environment:
   ANTHROPIC_API_KEY   enables the Claude picker (otherwise the free ranking is used)
-  DD_MODEL            Claude model id, default claude-opus-5-5
+  DP_MODEL            Claude model id, default claude-opus-5-5
   REDDIT_CLIENT_ID / REDDIT_CLIENT_SECRET   optional, adds Reddit
 """
 
@@ -18,16 +18,33 @@ import hashlib
 import json
 import logging
 import os
+import re
 import sys
 from pathlib import Path
 
 from . import config, curate, rank, sources
 
-log = logging.getLogger("daily-diff")
+log = logging.getLogger("dailypull")
+
+URL_RE = re.compile(r"https?://\S+")
+BOILERPLATE_RE = re.compile(r"continue reading on [^»]*»|read on the web|view on \S+", re.IGNORECASE)
 
 
 def short_id(url: str) -> str:
     return hashlib.sha1(sources.normalize_url(url).encode()).hexdigest()[:10]
+
+
+def excerpt(cand: dict, limit: int = 200) -> str:
+    """Description for the free ranking: the feed text without links or boilerplate, cut at a word."""
+    if cand.get("kind") == "newsletter":
+        return ""  # issue intros are sponsor and table-of-contents text
+    text = BOILERPLATE_RE.sub(" ", URL_RE.sub(" ", cand.get("text") or ""))
+    text = re.sub(r"\s+", " ", text).strip()
+    if len(text) < 40:
+        return ""
+    if len(text) > limit:
+        text = text[:limit].rsplit(" ", 1)[0].rstrip(",;:") + "…"
+    return text
 
 
 def next_refresh(now: dt.datetime) -> dt.datetime:
@@ -87,7 +104,7 @@ def assemble(result: dict, curated_by: str, cands: list[dict], status: dict, now
             "title": p["title"],
             "url": c["url"],
             "source": c["source"],
-            "why": p["why"] or (c["text"][:200] if curated_by == "ranking" else ""),
+            "why": p["why"] or (excerpt(c) if curated_by == "ranking" else ""),
             "topics": p["topics"],
             "minutes": p["minutes"],
             "kind": p["kind"],
@@ -143,7 +160,7 @@ def main(argv: list[str] | None = None) -> int:
 
     use_ai = bool(os.environ.get("ANTHROPIC_API_KEY")) and not args.no_ai
     # CI passes unset variables as empty strings, so fall back on "" too.
-    result, curated_by = pick(cands, use_ai, os.environ.get("DD_MODEL") or config.DEFAULT_MODEL)
+    result, curated_by = pick(cands, use_ai, os.environ.get("DP_MODEL") or config.DEFAULT_MODEL)
     doc = assemble(result, curated_by, cands, status, now)
 
     write_json(args.out / "today.json", doc)

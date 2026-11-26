@@ -1,11 +1,6 @@
-# Daily Diff
+# Daily Pull
 
 A web page that refreshes once a day and shows engineers a few things worth reading in the topics they pick. No login, no email, no newsletter, no app, no feed to scroll.
-
-```
-+3 -278
-3 reads for you today. 278 other posts skipped.
-```
 
 ## How it works
 
@@ -45,7 +40,7 @@ Set these on the repo (Settings > Secrets and variables > Actions). All are opti
 | Name | Type | What it does |
 |---|---|---|
 | `ANTHROPIC_API_KEY` | secret | Turns on the Claude picker. Without it the free ranking is used. |
-| `DD_MODEL` | variable | Claude model id. Default `claude-opus-5-5` (about $0.30 a day). |
+| `DP_MODEL` | variable | Claude model id. Default `claude-opus-5-5` (about $0.30 a day). |
 | `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET` | secrets | Adds 16 subreddits through Reddit's official API. Create a "script" app at reddit.com/prefs/apps. Reddit blocks anonymous access. |
 | `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` | secrets | Turns on the deploy step in the daily workflow. |
 

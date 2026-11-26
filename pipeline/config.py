@@ -58,7 +58,7 @@ FEEDS = [
     ("Cloudflare Blog", "https://blog.cloudflare.com/rss/", ["backend", "systems", "security"]),
     ("Netflix Tech Blog", "https://netflixtechblog.com/feed", ["backend"]),
     ("PlanetScale", "https://planetscale.com/blog/feed.atom", ["backend"]),
-    ("SRE Weekly", "https://sreweekly.com/feed/", ["devops"]),
+    ("SRE Weekly", "https://sreweekly.com/feed/", ["devops"], 6.0, "newsletter"),
     ("Charity Majors", "https://charity.wtf/feed/", ["devops", "career"]),
     ("Kubernetes Blog", "https://kubernetes.io/feed.xml", ["cloud"]),
     ("LWKD", "https://lwkd.info/feed.xml", ["cloud"]),
