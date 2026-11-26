@@ -6,20 +6,27 @@ from pathlib import Path
 
 import pytest
 
-from pipeline import build, config, curate, sources
+from pipeline import build, classics, config, sources
 
 ROOT = Path(__file__).resolve().parent.parent
 WORDS = ["Kubernetes upgrade", "Postgres vacuum", "LLM agents", "Linux kernel", "Rust compiler",
          "Ransomware gang", "CSS layout", "Incident postmortem", "Open source license", "Career growth"]
+SOURCES = ["Hacker News", "Lobsters"]
 
 
 def fake_items(n=120):
     out = []
     for i in range(n):
-        out.append(sources.candidate("Hacker News", f"{WORDS[i % len(WORDS)]} story {i}",
+        out.append(sources.candidate(SOURCES[i % 2], f"{WORDS[i % len(WORDS)]} story {i}",
                                      f"https://example.com/story/{i}", points=10 + i,
                                      published=time.time() - 3600))
     return out
+
+
+def fake_classics():
+    hits = [{"objectID": str(n), "title": f"{w} classic essay ({2000 + n})", "url": f"https://old.example/{n}",
+             "points": 1000 - n, "created_at_i": 1_600_000_000} for n, w in enumerate(WORDS)]
+    return classics.parse_hits(hits, this_year=2026)
 
 
 @pytest.fixture
@@ -27,79 +34,78 @@ def fake_sources(monkeypatch):
     items = fake_items()
 
     async def gather_all():
-        return [dict(i) for i in items], {"Hacker News": f"ok {len(items)}", "Lobsters": "error HTTPStatusError"}
+        return [dict(i, votes=dict(i["votes"]), places=list(i["places"])) for i in items], \
+            {"Hacker News": f"ok {len(items)}", "Lobsters": "error HTTPStatusError"}
+
+    async def gather_classics():
+        return fake_classics(), {"Hacker News classics": "ok 10"}
 
     monkeypatch.setattr(sources, "gather_all", gather_all)
+    monkeypatch.setattr(classics, "gather", gather_classics)
     return items
 
 
-def test_build_without_ai_writes_valid_page_data(tmp_path, fake_sources, monkeypatch):
-    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+def test_build_writes_valid_page_data(tmp_path, fake_sources):
     out, history = tmp_path / "data", tmp_path / "history.json"
     assert build.main(["--out", str(out), "--history", str(history)]) == 0
 
     doc = json.loads((out / "today.json").read_text())
-    assert doc["version"] == 1
-    assert doc["curated_by"] == "ranking"
-    assert doc["source_count"] == 1
+    assert doc["version"] == 2
+    assert doc["source_count"] == 2
     assert doc["topics"] == config.TOPICS
-    assert 10 <= len(doc["picks"]) <= 50
+    assert 10 <= len(doc["picks"]) <= config.MAX_PICKS
     scores = [p["score"] for p in doc["picks"]]
     assert scores == sorted(scores, reverse=True)
     for p in doc["picks"]:
         assert p["url"].startswith("https://example.com/story/")
+        assert p["domain"] == "example.com"
         assert set(p["topics"]) <= set(config.TOPICS)
+        assert p["signals"] and p["signals"][0].endswith(("on Hacker News", "on Lobsters"))
     assert dt.datetime.fromisoformat(doc["next_refresh_at"].replace("Z", "+00:00")) > \
         dt.datetime.fromisoformat(doc["generated_at"].replace("Z", "+00:00"))
 
-    shown = json.loads(history.read_text())["shown"]
-    assert len(shown) == len(doc["picks"])
+    assert 1 <= len(doc["classics"]) <= len(config.TOPICS)
+    for c in doc["classics"]:
+        assert c["url"].startswith("https://old.example/") and c["year"] < 2026 and len(c["topics"]) == 1
+        assert "classic essay" in c["title"] and "(" not in c["title"]
 
-    # The next day the same links are not picked again.
+    saved = json.loads(history.read_text())
+    assert len(saved["shown"]) == len(doc["picks"])
+    assert len(saved["classics"]) == len(doc["classics"])
+
+    # The next day the same links and classics are not picked again.
     assert build.main(["--out", str(out), "--history", str(history)]) == 0
     second = json.loads((out / "today.json").read_text())
     assert not {p["url"] for p in second["picks"]} & {p["url"] for p in doc["picks"]}
+    assert not {c["url"] for c in second["classics"]} & {c["url"] for c in doc["classics"]}
 
 
-def test_build_refuses_to_publish_when_sources_are_broken(tmp_path, monkeypatch):
+def test_build_refuses_to_publish_when_sources_are_broken(tmp_path, fake_sources, monkeypatch):
     async def gather_all():
         return fake_items(5), {"Hacker News": "ok 5"}
 
     monkeypatch.setattr(sources, "gather_all", gather_all)
     out = tmp_path / "data"
-    assert build.main(["--out", str(out), "--history", str(tmp_path / "h.json"), "--no-ai"]) == 2
+    assert build.main(["--out", str(out), "--history", str(tmp_path / "h.json")]) == 2
     assert not (out / "today.json").exists()
 
 
-def test_build_falls_back_to_ranking_when_claude_fails(tmp_path, fake_sources, monkeypatch):
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+def test_build_works_when_classics_fail(tmp_path, fake_sources, monkeypatch):
+    async def broken():
+        return [], {"Hacker News classics": "error no results"}
 
-    def broken(*args, **kwargs):
-        raise curate.CurationError("down")
-
-    monkeypatch.setattr(curate, "ask_claude", broken)
+    monkeypatch.setattr(classics, "gather", broken)
     out = tmp_path / "data"
     assert build.main(["--out", str(out), "--history", str(tmp_path / "h.json")]) == 0
-    assert json.loads((out / "today.json").read_text())["curated_by"] == "ranking"
+    assert json.loads((out / "today.json").read_text())["classics"] == []
 
 
-def test_build_uses_claude_picks_when_available(tmp_path, fake_sources, monkeypatch):
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
-    monkeypatch.setenv("DP_MODEL", "claude-opus-5-5")
-
-    def fake_claude(cands, model, client=None):
-        return {"headline": "Big day", "picks": [
-            {"id": c["cid"], "title": c["title"].upper(), "why": "Because.", "topics": ["ai"],
-             "minutes": 5, "kind": "article", "score": 7} for c in cands[:12]]}
-
-    monkeypatch.setattr(curate, "ask_claude", fake_claude)
-    out = tmp_path / "data"
-    assert build.main(["--out", str(out), "--history", str(tmp_path / "h.json")]) == 0
-    doc = json.loads((out / "today.json").read_text())
-    assert doc["curated_by"] == "claude-opus-5-5"
-    assert doc["headline"] == "Big day"
-    assert len(doc["picks"]) == 12
-    assert all(p["why"] == "Because." for p in doc["picks"])
+def test_old_history_files_still_load(tmp_path):
+    path = tmp_path / "h.json"
+    path.write_text(json.dumps({"shown": {"https://a.example": "2026-11-20"}}))
+    assert build.load_history(path) == {"shown": {"https://a.example": "2026-11-20"}, "classics": {}}
+    path.write_text("[1, 2]")
+    assert build.load_history(path) == {"shown": {}, "classics": {}}
 
 
 def test_next_refresh_is_next_0030_utc():
@@ -111,10 +117,12 @@ def test_next_refresh_is_next_0030_utc():
 def test_history_drops_old_entries(tmp_path):
     path = tmp_path / "h.json"
     today = dt.date(2026, 11, 26)
-    history = {"shown": {"https://old.example": "2026-10-01", "https://recent.example": "2026-11-20"}}
-    build.save_history(path, history, ["https://new.example/"], today)
-    shown = json.loads(path.read_text())["shown"]
-    assert set(shown) == {"https://recent.example", "https://new.example"}
+    history = {"shown": {"https://old.example": "2026-10-01", "https://recent.example": "2026-11-20"},
+               "classics": {"https://classic.example": "2024-01-01"}}
+    build.save_history(path, history, ["https://new.example/"], ["https://another.example/"], today)
+    saved = json.loads(path.read_text())
+    assert set(saved["shown"]) == {"https://recent.example", "https://new.example"}
+    assert set(saved["classics"]) == {"https://classic.example", "https://another.example"}
 
 
 def test_frontend_topics_match_pipeline():
@@ -122,20 +130,6 @@ def test_frontend_topics_match_pipeline():
     block = re.search(r"const TOPICS = \{(.*?)\};", js, re.S).group(1)
     pairs = dict(re.findall(r'(\w+): "([^"]+)"', block))
     assert pairs == config.TOPICS
-
-
-def test_empty_model_variable_uses_default(tmp_path, fake_sources, monkeypatch):
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
-    monkeypatch.setenv("DP_MODEL", "")
-    seen = {}
-
-    def fake_claude(cands, model, client=None):
-        seen["model"] = model
-        raise curate.CurationError("stop here")
-
-    monkeypatch.setattr(curate, "ask_claude", fake_claude)
-    assert build.main(["--out", str(tmp_path / "d"), "--history", str(tmp_path / "h.json")]) == 0
-    assert seen["model"] == config.DEFAULT_MODEL
 
 
 def test_excerpt_drops_links_boilerplate_and_newsletter_intros():

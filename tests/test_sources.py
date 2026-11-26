@@ -126,6 +126,9 @@ def test_dedupe_merges_copies():
     assert out[0]["points"] == 50
     assert out[0]["discussion"] == "https://news.ycombinator.com/item?id=1"
     assert out[0]["hints"] == ["web"]
+    assert out[0]["votes"] == {"Hacker News": 50, "Lobsters": 20}
+    assert out[0]["places"] == ["Hacker News", "Lobsters"]
+    assert a["votes"] == {"Hacker News": 50}  # inputs are not changed
 
 
 def test_feed_entry_defaults_and_overrides():
@@ -141,9 +144,101 @@ def test_every_configured_feed_is_well_formed():
         assert 0 <= prior <= 10 and kind in config.KINDS, name
 
 
+def test_every_configured_editor_is_well_formed():
+    for name, url, hints, style in config.EDITORS:
+        assert url.startswith("https://"), name
+        assert set(hints) <= set(config.TOPICS), name
+        assert style in ("issue", "linkblog"), name
+
+
 def test_status_keys_are_unique():
-    keys = [sources.status_key(spec[0], spec[1]) for spec in config.FEEDS]
+    keys = [sources.status_key(spec[0], spec[1]) for spec in config.FEEDS] + [e[0] for e in config.EDITORS]
     assert len(keys) == len(set(keys))
+
+
+def test_reddit_subs_and_mastodon_servers_count_as_one_place():
+    assert sources.community("r/devops") == "Reddit"
+    assert sources.candidate("r/sre", "T", "https://e.com", points=5)["votes"] == {"Reddit": 5}
+    assert sources.candidate("Julia Evans", "T", "https://e.com")["votes"] == {}
+
+
+def test_guess_kind():
+    assert sources.guess_kind("https://github.com/owner/repo") == "repo"
+    assert sources.guess_kind("https://github.com/owner/repo/blob/main/x.md") == "article"
+    assert sources.guess_kind("https://www.youtube.com/watch?v=1") == "video"
+    assert sources.guess_kind("https://arxiv.org/abs/2611.1") == "paper"
+    assert sources.guess_kind("https://example.com/paper.PDF") == "paper"
+
+
+ISSUE = """
+<p><a href="https://golangweekly.com/link/1/rss">Read the Web Version</a></p>
+<table><tr><td><p><a href="https://golangweekly.com/link/2/rss">Probabilistic Data Structures in Go</a>
+  A tour of Bloom filters and HyperLogLog. <span>Anton Zhiyanov</span></p></td></tr></table>
+<table><tr><td><p><a href="https://golangweekly.com/link/3/rss">Webhooks You Can Trust in Production</a>
+  Signed callbacks and retries.</p><p>Svix <span>sponsor</span></p></td></tr></table>
+<table><tr><td><p><a href="https://golangweekly.com/link/4/rss">Go 1.30 Release Candidate Is Out</a>
+  Try it now, see <a href="https://golangweekly.com/link/5/rss">separate downloads</a>.</p></td></tr></table>
+<p><a href="https://twitter.com/golangweekly">Follow Golang Weekly on Twitter</a></p>
+<p><a href="https://github.com/golang/go/pull/123">runtime: fix a race in the scheduler</a></p>
+<p><a href="https://golangweekly.com/issues/625">Browse the whole archive here</a></p>
+"""
+
+SRE = """<a href="https://sreweekly.com/sre-weekly-issue-544/">View on sreweekly.com</a>
+<div><h2>A message from our sponsor, <a href="https://sreweekly.com/link/544">JAMS Software</a>:</h2>
+<p>Moved on-call fast.</p><p><a href="https://sreweekly.com/link/544">Run the PagerDuty conversion, free for 14 days</a></p></div>
+<p><a href="https://greatcircle.com/blog/2026/11/10/fix-forward-trap/">The fix-forward trap</a></p>
+<p>Rolling forward is tempting.</p>"""
+
+
+def test_extract_links_keeps_editors_picks_only():
+    links = sources.extract_links(ISSUE, "golangweekly.com")
+    assert [(u, t) for u, t, _ in links] == [
+        ("https://golangweekly.com/link/2/rss", "Probabilistic Data Structures in Go"),
+        ("https://golangweekly.com/link/4/rss", "Go 1.30 Release Candidate Is Out"),
+    ]
+    assert links[0][2].startswith("A tour of Bloom filters")
+
+
+def test_extract_links_skips_sponsor_blocks_before_the_link():
+    assert sources.extract_links(SRE, "sreweekly.com") == [
+        ("https://greatcircle.com/blog/2026/11/10/fix-forward-trap/", "The fix-forward trap",
+         "Rolling forward is tempting.")]
+
+
+def _rss(body, date="Wed, 25 Nov 2026 10:00:00 GMT", link="https://golangweekly.com/issues/625"):
+    from xml.sax.saxutils import escape
+    return (f"<rss version='2.0'><channel><title>T</title><item><title>Issue</title><link>{link}</link>"
+            f"<pubDate>{date}</pubDate><description>{escape(body)}</description></item></channel></rss>")
+
+
+def test_parse_editor_marks_each_link_as_an_editors_pick():
+    items = sources.parse_editor("Golang Weekly", _rss(ISSUE), ["languages"], now=NOW)
+    assert len(items) == 2
+    assert items[0]["editors"] == ["Golang Weekly"] and items[0]["places"] == ["Golang Weekly"]
+    assert items[0]["prior"] == config.EDITOR_PRIOR and items[0]["hints"] == ["languages"]
+    assert sources.parse_editor("Golang Weekly", _rss(ISSUE, date="Mon, 02 Nov 2026 10:00:00 GMT"), [], now=NOW) == []
+    assert len(sources.parse_editor("Simon", _rss(ISSUE), [], style="linkblog", now=NOW)) == 1
+
+
+def test_resolve_redirects_follows_click_trackers():
+    def handler(request: httpx.Request) -> httpx.Response:
+        targets = {"/link/2/rss": "https://antonz.org/probabilistic/", "/link/9/rss": "https://twitter.com/x"}
+        if request.url.path in targets:
+            return httpx.Response(301, headers={"location": targets[request.url.path]})
+        return httpx.Response(404)
+
+    items = [sources.candidate("Golang Weekly", "Probabilistic Data Structures", "https://golangweekly.com/link/2/rss"),
+             sources.candidate("Golang Weekly", "Broken tracker link here", "https://golangweekly.com/link/4/rss"),
+             sources.candidate("Golang Weekly", "Social link we never want", "https://golangweekly.com/link/9/rss"),
+             sources.candidate("Import AI", "A direct link to a paper", "https://arxiv.org/abs/1")]
+
+    async def run():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            return await sources.resolve_redirects(client, items)
+
+    out = asyncio.run(run())
+    assert [c["url"] for c in out] == ["https://antonz.org/probabilistic/", "https://arxiv.org/abs/1"]
+    assert out[1]["kind"] == "article" or out[1]["kind"] == "paper"
 
 
 def test_gather_all_survives_broken_sources():
@@ -158,4 +253,5 @@ def test_gather_all_survives_broken_sources():
     assert len(items) == 3
     assert status["Hacker News"] == "ok 3"
     assert status["Lobsters"].startswith("error")
+    assert status["SRE Weekly"].startswith("error")
     assert status["Reddit"].startswith("skipped")

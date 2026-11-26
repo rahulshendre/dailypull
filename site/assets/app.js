@@ -104,6 +104,15 @@
       && Array.isArray(p.topics);
   }
 
+  const tidy = (p) => ({
+    ...p,
+    score: Number(p.score) || 0,
+    minutes: Math.max(1, Number(p.minutes) || 5),
+    signals: Array.isArray(p.signals) ? p.signals.filter((s) => typeof s === "string") : [],
+    excerpt: typeof p.excerpt === "string" ? p.excerpt : "",
+    domain: typeof p.domain === "string" ? p.domain : "",
+  });
+
   async function fetchData() {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 10000);
@@ -112,11 +121,8 @@
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       if (!json || !Array.isArray(json.picks)) throw new Error("unexpected data");
-      json.picks = json.picks.filter(validPick).map((p) => ({
-        ...p,
-        score: Number(p.score) || 0,
-        minutes: Math.max(1, Number(p.minutes) || 5),
-      }));
+      json.picks = json.picks.filter(validPick).map(tidy);
+      json.classics = (Array.isArray(json.classics) ? json.classics : []).filter(validPick).map(tidy);
       return json;
     } finally {
       clearTimeout(timer);
@@ -131,7 +137,7 @@
     } catch {
       $("error-text").textContent = navigator.onLine === false
         ? "You're offline. Connect to the internet, then try again."
-        : "The list didn't load. Try again in a moment.";
+        : "The list didn't come through. Try again in a moment.";
       show("error");
     }
   }
@@ -200,20 +206,40 @@
       .sort((a, b) => b.score - a.score);
   }
 
-  function formatDate(iso) {
+  // One classic a day for readers of 3 or 5, from their topics. It rotates daily among them.
+  function classicForToday() {
+    if (prefs.count < 3 || showAll) return null;
+    const mine = data.classics.filter((c) => c.topics.some((t) => prefs.topics.includes(t)));
+    if (!mine.length) return null;
+    const day = Math.floor(Date.parse(`${data.date}T00:00:00Z`) / 86400000) || 0;
+    return mine[day % mine.length];
+  }
+
+  function dateOf(iso) {
     const d = new Date(`${iso}T12:00:00Z`);
-    if (Number.isNaN(d.getTime())) return "";
-    return d.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" });
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+
+  function formatDate(iso) {
+    const d = dateOf(iso);
+    return d ? d.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" }) : "";
+  }
+
+  // "Thursday" on one line, "26 November" (or "November 26") on the next.
+  function headingDate(iso) {
+    const d = dateOf(iso);
+    if (!d) return "";
+    return `${d.toLocaleDateString(undefined, { weekday: "long" })}\n${d.toLocaleDateString(undefined, { day: "numeric", month: "long" })}`;
   }
 
   function untilNext() {
     const t = Date.parse(data.next_refresh_at);
     if (Number.isNaN(t)) return "";
     const ms = t - Date.now();
-    if (ms <= 60000) return "New list any minute now.";
+    if (ms <= 60000) return "Next pull any minute now.";
     const h = Math.floor(ms / 3600000);
     const m = Math.floor((ms % 3600000) / 60000);
-    return `New list in ${h ? `${h}h ${m}m` : `${m}m`}.`;
+    return `Next pull in ${h ? `${h}h ${m}m` : `${m}m`}.`;
   }
 
   function isLate() {
@@ -232,11 +258,25 @@
     return `${p.minutes} min read`;
   }
 
-  function readItem(p) {
-    const li = el("li", "read");
+  function newTabLink(text, href, className) {
+    const a = el("a", className || "", text);
+    a.href = href;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    return a;
+  }
+
+  function readItem(p, isClassic) {
+    const li = el("li", isClassic ? "read classic" : "read");
     li.dataset.id = p.id;
     const done = isRead(p.id);
     li.classList.toggle("is-read", done);
+
+    if (isClassic) {
+      const label = el("p", "classic-label");
+      label.append(el("span", "", Number.isInteger(p.year) ? `Classic from ${p.year}` : "Classic"));
+      li.append(label);
+    }
 
     const tick = el("button", "tick");
     tick.type = "button";
@@ -245,42 +285,41 @@
 
     const body = el("div", "body");
     const h2 = el("h2");
-    const link = el("a", "", p.title);
-    link.href = safeUrl(p.url);
-    link.target = "_blank";
-    link.rel = "noopener noreferrer";
-    h2.append(link);
+    h2.append(newTabLink(p.title, safeUrl(p.url)));
+    body.append(h2);
+
+    // Why it is here, as plain facts. Without votes or editors, the post's own summary.
+    if (p.signals.length) {
+      const text = p.signals.join(", ");
+      body.append(el("p", "signals", text[0].toUpperCase() + text.slice(1)));
+    } else if (p.excerpt) {
+      body.append(el("p", "excerpt", p.excerpt));
+    }
 
     const meta = el("p", "meta");
-    meta.append(el("span", "", p.source), el("span", "", lengthLabel(p)));
+    if (p.domain) meta.append(el("span", "", p.domain));
+    meta.append(el("span", "", lengthLabel(p)));
     if (["discussion", "release", "paper", "newsletter"].includes(p.kind)) {
       meta.append(el("span", "", p.kind[0].toUpperCase() + p.kind.slice(1)));
     }
     const label = topicLabel(p);
     if (label) meta.append(el("span", "", label));
     const discussion = p.discussion && safeUrl(p.discussion);
-    if (discussion) {
-      const d = el("a", "", "Discussion");
-      d.href = discussion;
-      d.target = "_blank";
-      d.rel = "noopener noreferrer";
-      meta.append(d);
-    }
-    body.append(h2, meta);
-    if (p.why) body.append(el("p", "why", p.why));
+    if (discussion) meta.append(newTabLink("Discussion", discussion));
+    body.append(meta);
+
     li.append(tick, body);
     return li;
   }
 
   function renderToday() {
     const all = pool();
-    const visible = all.slice(0, prefs.count + extra);
+    const classic = classicForToday();
+    const visible = all.slice(0, prefs.count - (classic ? 1 : 0) + extra);
 
-    $("today-date").textContent = formatDate(data.date);
-
-    const headline = $("headline");
-    headline.textContent = data.headline || "";
-    headline.hidden = !data.headline;
+    const heading = $("today-date");
+    heading.textContent = headingDate(data.date);
+    heading.dataset.shadow = heading.textContent;
 
     const notice = $("notice");
     if (isLate()) {
@@ -295,7 +334,8 @@
 
     const list = $("reads");
     list.textContent = "";
-    for (const p of visible) list.append(readItem(p));
+    for (const p of visible) list.append(readItem(p, false));
+    if (classic && visible.length) list.append(readItem(classic, true));
     list.hidden = !visible.length;
     $("empty").hidden = visible.length > 0;
     $("after").hidden = !visible.length;
@@ -305,12 +345,12 @@
     more.hidden = remaining <= 0;
     more.textContent = `Show ${Math.min(prefs.count, remaining)} more`;
 
-    const curated = data.curated_by === "ranking" ? "Ranked by votes" : "Picked by Claude";
     const refresh = Date.parse(data.next_refresh_at);
     const time = Number.isNaN(refresh) ? "" : new Date(refresh).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    $("foot-sources").textContent = `${curated} from ${data.source_count || "dozens of"} sources: Hacker News, Lobsters, GitHub, Medium, Substack, Mastodon, YouTube and engineering blogs.${time ? ` A new list arrives every day around ${time}.` : ""}`;
+    $("foot-sources").textContent = `Ranked by people, not AI: votes on Hacker News, Lobsters, GitHub and Mastodon, picks from newsletter editors, and ${data.source_count || "dozens of"} sources in all.${time ? ` A new list arrives every day around ${time}.` : ""}`;
 
-    document.title = `${visible.length} ${visible.length === 1 ? "read" : "reads"} today: Daily Pull`;
+    const shown = list.children.length;
+    document.title = `${shown} ${shown === 1 ? "read" : "reads"} today: Daily Pull`;
     show("today");
     updateDone();
   }
@@ -320,7 +360,7 @@
     const allRead = items.length > 0 && items.every((li) => li.classList.contains("is-read"));
     const done = $("done");
     done.hidden = !allRead;
-    done.textContent = `That's today. ${untilNext()}`;
+    done.textContent = `All read. ${untilNext()}`;
   }
 
   function toggleItem(li, value) {

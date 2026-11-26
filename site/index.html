@@ -6,34 +6,36 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <title>Daily Pull: a few good reads for engineers, every day</title>
-<meta name="description" content="A few things worth reading today, picked for the topics you choose. No account, no email, no feed to scroll.">
+<meta name="description" content="A few things worth reading today in the topics you pick. Ranked by people, not AI. No account, no email, no feed to scroll.">
 <meta name="color-scheme" content="light dark">
-<meta name="theme-color" content="#F6F7F9" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: dark)">
 <meta property="og:title" content="Daily Pull">
-<meta property="og:description" content="A few things worth reading today, picked for the topics you choose. No account, no email, no noise.">
+<meta property="og:description" content="A few good reads for engineers, every day. Ranked by people, not AI. No account, no email, no noise.">
 <meta property="og:type" content="website">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-<link rel="preload" href="assets/fonts/InstrumentSans.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="preload" href="assets/fonts/MartianMono.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/fonts/DepartureMono.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="assets/style.css">
 <script src="assets/app.js" defer></script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
-<div class="page">
-  <header class="bar">
+<header class="bar">
+  <div class="bar-inner">
     <a class="mark" href="./"><span class="mark-arrow" aria-hidden="true">↓</span>daily pull</a>
-    <button class="text-button" id="edit-topics" type="button" hidden>Topics</button>
-  </header>
+    <button class="bar-button" id="edit-topics" type="button" hidden>Topics</button>
+  </div>
+</header>
 
+<div class="page">
   <main id="main" tabindex="-1">
     <section id="view-loading" class="status" aria-live="polite">
-      <p class="status-text" id="loading-text">Loading today's reads.</p>
+      <p class="status-text">Pulling today's reads</p>
+      <div class="pullbar" aria-hidden="true"><span></span></div>
     </section>
 
     <section id="view-error" class="status" hidden>
-      <h1 class="status-title">Couldn't load today's reads.</h1>
+      <h1 class="status-title">Couldn't pull today's list.</h1>
       <p class="status-text" id="error-text">Check your connection, then try again.</p>
       <button class="primary" id="retry" type="button">Try again</button>
     </section>
@@ -41,7 +43,7 @@
     <section id="view-setup" hidden>
       <form id="setup-form" novalidate>
         <h1 class="setup-title">What do you want to read about?</h1>
-        <p class="lede">Pick a few topics. Each day you get only the best reads in them, nothing else.</p>
+        <p class="lede">Pick a few topics. Each day you get only the best reads in them: what engineers upvoted, what newsletter editors picked, and one classic that still holds up.</p>
         <fieldset class="topics">
           <legend class="visually-hidden">Topics</legend>
           <div class="topic-grid" id="topic-grid"></div>
@@ -49,21 +51,19 @@
         <fieldset class="amount">
           <legend>How many reads a day?</legend>
           <div class="segmented" id="amount"></div>
+          <p class="amount-note">With 3 or 5, one of them is a classic.</p>
         </fieldset>
         <p class="form-error" id="setup-error" role="alert" hidden>Pick at least one topic.</p>
         <div class="setup-actions">
           <button class="primary" type="submit" id="setup-save">Show my reads</button>
           <button class="text-button" type="button" id="setup-cancel" hidden>Cancel</button>
         </div>
-        <p class="fine">No account and no email. Your topics are saved only in this browser.</p>
+        <p class="fine">No account, no email. Your topics stay in this browser.</p>
       </form>
     </section>
 
     <section id="view-today" hidden>
-      <div class="today-head">
-        <h1 class="date" id="today-date"></h1>
-        <p class="headline" id="headline" hidden></p>
-      </div>
+      <h1 class="date" id="today-date"></h1>
       <p class="notice" id="notice" role="status" hidden></p>
       <ol class="reads" id="reads"></ol>
       <div class="empty" id="empty" hidden>
@@ -74,14 +74,14 @@
         </div>
       </div>
       <div class="after" id="after">
+        <button class="button" type="button" id="more" hidden></button>
         <p class="done" id="done" hidden></p>
-        <button class="text-button" type="button" id="more" hidden></button>
       </div>
     </section>
   </main>
 
   <footer class="foot" id="foot">
-    <p id="foot-sources">Picked from Hacker News, Lobsters, GitHub, Medium, Substack, Mastodon, YouTube and dozens of engineering blogs.</p>
+    <p id="foot-sources">Ranked by people, not AI: votes on Hacker News, Lobsters, GitHub and Mastodon, picks from newsletter editors, and dozens of engineering blogs.</p>
     <p>No account, no email, no tracking. Your topics and what you've read stay in this browser.</p>
     <p class="keys">Keys: <kbd>j</kbd> <kbd>k</kbd> move, <kbd>o</kbd> open, <kbd>x</kbd> mark read.</p>
   </footer>

@@ -12,6 +12,7 @@ import datetime as dt
 import html
 import re
 import time
+from urllib.parse import urlparse
 
 import feedparser
 import httpx
@@ -26,8 +27,15 @@ def clean_text(text: str, limit: int = 300) -> str:
     return re.sub(r"\s+", " ", text).strip()[:limit]
 
 
+def community(source: str) -> str:
+    """The independent crowd behind a source: every subreddit is Reddit, every Mastodon server is Mastodon."""
+    return "Reddit" if source.startswith("r/") else source
+
+
 def candidate(source, title, url, *, text="", points=0, comments=0, published=None,
-              discussion=None, hints=(), kind="article", prior=None) -> dict:
+              discussion=None, hints=(), kind="article", prior=None, editors=()) -> dict:
+    site = community(source)
+    votes = {site: int(points or 0)} if site in config.VOTE_SCALE else {}
     return {
         "source": source,
         "title": clean_text(title, 200),
@@ -40,6 +48,9 @@ def candidate(source, title, url, *, text="", points=0, comments=0, published=No
         "hints": sorted({h for h in hints if h in config.TOPICS}),
         "kind": kind,
         "prior": prior,
+        "votes": votes,                 # site -> points, only for voting sites
+        "editors": list(editors),       # newsletters whose editors linked it
+        "places": [site],               # independent places the link was seen (sites, editors, blogs)
     }
 
 
@@ -57,6 +68,22 @@ def status_key(name: str, url: str) -> str:
 
 def tags_to_topics(tags) -> list[str]:
     return sorted({config.TAG_TOPICS[t.lower()] for t in tags if t.lower() in config.TAG_TOPICS})
+
+
+def host_of(url: str) -> str:
+    host = urlparse(url).netloc.lower()
+    return host[4:] if host.startswith("www.") else host
+
+
+def guess_kind(url: str) -> str:
+    host, path = host_of(url), urlparse(url).path
+    if host == "github.com" and re.fullmatch(r"/[^/]+/[^/]+/?", path):
+        return "repo"
+    if host in ("youtube.com", "youtu.be", "m.youtube.com", "vimeo.com"):
+        return "video"
+    if host == "arxiv.org" or path.lower().endswith(".pdf"):
+        return "paper"
+    return "article"
 
 
 # ---------- parsers (pure functions, unit tested) ----------
@@ -81,6 +108,70 @@ def parse_feed(name: str, body: str, hints, now: float | None = None, prior: flo
         if len(out) >= config.PER_FEED:
             break
     return out
+
+
+ANCHOR_RE = re.compile(r'<a\s[^>]*?href="(https?://[^"]+)"[^>]*>(.*?)</a>', re.S | re.I)
+LINK_STOP_RE = re.compile(
+    r"^(read|view)\b.*\b(web|browser|online|version|newsletter)\b|^view on |^read more|^click here|^permalink"
+    r"|unsubscribe|^subscribe|advertis|sponsor|join the discussion|^@", re.I)
+SPONSOR_AFTER_RE = re.compile(r"\bsponsor(ed)?\b", re.I)
+SPONSOR_BEFORE_RE = re.compile(r"\bour sponsor|\bsponsored by\b|\bmessage from\b", re.I)
+NOT_A_READ_RE = re.compile(r"github\.com/[^/]+/[^/]+/(pull|issues|commit|compare)/|\.(png|jpe?g|gif|webp)$", re.I)
+
+
+def skip_link(url: str, own_host: str = "") -> bool:
+    host = host_of(url)
+    if any(host == h or host.endswith("." + h) for h in config.SKIP_LINK_HOSTS):
+        return True
+    if own_host and host == own_host and not re.search(r"/link/\d+", url):
+        return True  # the newsletter's own pages (archive, issue page), not a read
+    return bool(NOT_A_READ_RE.search(url))
+
+
+def extract_links(body: str, own_host: str = "") -> list[tuple[str, str, str]]:
+    """The links an editor picked in one newsletter issue: (url, title, the editor's blurb).
+
+    Only anchors with a real title count. Sponsor blocks, navigation and social links are skipped.
+    """
+    anchors = [(m.start(), m.end(), html.unescape(m.group(1)), clean_text(m.group(2), 200))
+               for m in ANCHOR_RE.finditer(body or "")]
+    # A real headline: long enough, starts like a title. "separate downloads" mid-sentence is not one.
+    titled = [a for a in anchors if len(a[3]) >= 15]
+    picked, sponsored = [], set()
+    for i, (start, end, url, title) in enumerate(titled):
+        before = clean_text(body[titled[i - 1][1] if i else 0:start], 2000)
+        after = clean_text(body[end:titled[i + 1][0] if i + 1 < len(titled) else len(body)], 2000)
+        if SPONSOR_AFTER_RE.search(after) or SPONSOR_BEFORE_RE.search(before):
+            sponsored.add(url)
+        elif not LINK_STOP_RE.search(title) and (title[0].isupper() or title[0].isdigit()) \
+                and len(title.split()) >= 3:
+            picked.append((url, title, after[:300]))
+    out, seen = [], set()
+    for url, title, blurb in picked:
+        if url in sponsored or url in seen or skip_link(url, own_host):
+            continue
+        seen.add(url)
+        out.append((url, title, blurb))
+    return out
+
+
+def parse_editor(name: str, body: str, hints, style: str = "issue", now: float | None = None) -> list[dict]:
+    """Links from a curated newsletter's recent issues, each counted as one editor's pick."""
+    now = now or time.time()
+    out = []
+    for entry in feedparser.parse(body).entries:
+        stamp = entry.get("published_parsed") or entry.get("updated_parsed")
+        published = calendar.timegm(stamp) if stamp else None
+        if published is None or now - published > config.EDITOR_MAX_AGE_DAYS * 86400:
+            continue
+        content = (entry.get("content") or [{}])[0].get("value") or entry.get("summary", "")
+        links = extract_links(content, host_of(entry.get("link", "")))
+        if style == "linkblog":
+            links = links[:1]
+        for url, title, blurb in links:
+            out.append(candidate(name, title, url, text=blurb, published=published, hints=hints,
+                                 kind=guess_kind(url), prior=config.EDITOR_PRIOR, editors=[name]))
+    return out[:config.EDITOR_MAX_LINKS]
 
 
 def parse_mastodon(instance: str, data: list, now: float | None = None) -> list[dict]:
@@ -206,6 +297,25 @@ async def _run(name: str, status: dict, coro) -> list[dict]:
         return []
 
 
+async def resolve_redirects(client: httpx.AsyncClient, items: list[dict]) -> list[dict]:
+    """Newsletters wrap links in click trackers (/link/123). Swap each for where it really goes."""
+    async def one(c):
+        if not re.search(r"/link/\d+", urlparse(c["url"]).path):
+            return c
+        try:
+            resp = await client.get(c["url"], follow_redirects=False)
+        except httpx.HTTPError:
+            return None
+        target = resp.headers.get("location", "")
+        if resp.status_code not in (301, 302, 303, 307, 308) or not target.startswith("http") or skip_link(target):
+            return None
+        c["url"], c["kind"] = target, guess_kind(target)
+        return c
+
+    resolved = await asyncio.gather(*(one(c) for c in items))
+    return [c for c in resolved if c]
+
+
 async def fetch_reddit(client: httpx.AsyncClient, client_id: str, secret: str) -> list[dict]:
     """Reddit's official API, app-only OAuth (free for low volume). Anonymous access is blocked."""
     token = await client.post(
@@ -243,8 +353,17 @@ async def gather_all(timeout: float = 40.0, env: dict | None = None,
             resp = await _get(client, f"https://{instance}/api/v1/trends/links?limit=20")
             return parse_mastodon(instance, resp.json())
 
+        async def editor(spec):
+            name, url, hints, style = spec
+            items = parse_editor(name, (await _get(client, url)).text, hints, style)
+            return await resolve_redirects(client, items)
+
         async def hn():
-            return parse_hn((await _get(client, "https://hn.algolia.com/api/v1/search?tags=front_page&hitsPerPage=40")).json())
+            # Stories from the last two days that people kept voting for, not just what is on top right now.
+            since = int(time.time()) - config.HN_WINDOW_HOURS * 3600
+            url = ("https://hn.algolia.com/api/v1/search?tags=story&hitsPerPage=100"
+                   f"&numericFilters=created_at_i>{since},points>={config.HN_MIN_POINTS}")
+            return parse_hn((await _get(client, url)).json())
 
         async def lobsters():
             return parse_lobsters((await _get(client, "https://lobste.rs/hottest.json")).json()[:25])
@@ -256,6 +375,7 @@ async def gather_all(timeout: float = 40.0, env: dict | None = None,
             return parse_github_trending((await _get(client, "https://github.com/trending?since=daily")).text)[:20]
 
         jobs = [_run(status_key(spec[0], spec[1]), status, feed(spec)) for spec in config.FEEDS]
+        jobs += [_run(spec[0], status, editor(spec)) for spec in config.EDITORS]
         jobs += [_run(f"Mastodon {i}", status, mastodon(i)) for i in config.MASTODON_INSTANCES]
         jobs += [
             _run("Hacker News", status, hn()),
@@ -279,7 +399,7 @@ def normalize_url(url: str) -> str:
 
 
 def dedupe(cands: list[dict]) -> list[dict]:
-    """Keep the first copy of each link; aggregator copies keep their discussion link."""
+    """One entry per link. Copies add their votes, editors and places: that is the agreement signal."""
     seen: dict[str, dict] = {}
     for c in cands:
         key = normalize_url(c["url"])
@@ -290,7 +410,18 @@ def dedupe(cands: list[dict]) -> list[dict]:
             kept["points"] = max(kept["points"], c["points"])
             kept["comments"] = max(kept["comments"], c["comments"])
             kept["discussion"] = kept["discussion"] or c["discussion"]
-            kept["hints"] = sorted(set(kept["hints"]) | set(c["hints"]))
+            # Topic hints: the ones more places agree on come first.
+            counts = kept.setdefault("hint_counts", {h: 1 for h in kept["hints"]})
+            for h in c["hints"]:
+                counts[h] = counts.get(h, 0) + 1
+            kept["hints"] = sorted(counts, key=lambda h: -counts[h])
+            for site, n in c["votes"].items():
+                kept["votes"][site] = max(kept["votes"].get(site, 0), n)
+            kept["editors"] += [e for e in c["editors"] if e not in kept["editors"]]
+            kept["places"] += [p for p in c["places"] if p not in kept["places"]]
+            kept["base"] = max(kept.get("base", 0.0), c.get("base", 0.0))
+            if not kept["text"] and c["text"]:
+                kept["text"] = c["text"]
             continue
-        seen[key] = dict(c)
+        seen[key] = {**c, "votes": dict(c["votes"]), "editors": list(c["editors"]), "places": list(c["places"])}
     return list(seen.values())

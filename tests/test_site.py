@@ -35,20 +35,28 @@ def make_data(next_refresh_hours=6.0):
     picks = []
     for n in range(6):
         picks.append({"id": f"ai{n}", "title": f"AI read {n}", "url": f"https://example.com/ai/{n}",
-                      "source": "Hacker News", "why": f"Why AI {n}.", "topics": ["ai"], "minutes": 5,
-                      "kind": "article", "score": 9 - n, "discussion": f"https://news.ycombinator.com/item?id={n}"})
+                      "domain": "example.com", "source": "Hacker News",
+                      "signals": [f"{400 - n} points on Hacker News", "picked by Import AI"], "excerpt": "",
+                      "topics": ["ai"], "minutes": 5, "kind": "article", "score": 9 - n,
+                      "discussion": f"https://news.ycombinator.com/item?id={n}"})
     for n in range(2):
         picks.append({"id": f"ops{n}", "title": f"Ops read {n}", "url": f"https://example.com/ops/{n}",
-                      "source": "SRE Weekly", "why": "", "topics": ["devops"], "minutes": 7,
-                      "kind": "newsletter", "score": 6})
+                      "domain": "example.com", "source": "Charity Majors", "signals": [],
+                      "excerpt": f"What on-call taught us, part {n}.", "topics": ["devops"], "minutes": 7,
+                      "kind": "article", "score": 6})
     picks.append({"id": "evil", "title": "Evil link", "url": "javascript:alert(1)", "source": "X",
-                  "why": "", "topics": ["ai"], "minutes": 1, "kind": "article", "score": 10})
+                  "signals": [], "topics": ["ai"], "minutes": 1, "kind": "article", "score": 10})
     picks.append({"id": "vid", "title": "A video", "url": "https://youtube.com/watch?v=1", "source": "Fireship",
-                  "why": "", "topics": ["web"], "minutes": 9, "kind": "video", "score": 5})
-    return {"version": 1, "date": now.date().isoformat(), "generated_at": iso(now),
-            "next_refresh_at": iso(now + dt.timedelta(hours=next_refresh_hours)), "curated_by": "claude-opus-5-5",
-            "headline": "The headline of the day.", "considered": 300, "source_count": 80, "topics": TOPICS,
-            "picks": picks}
+                  "signals": [], "topics": ["web"], "minutes": 9, "kind": "video", "score": 5})
+    classics = [{"id": "classic1", "title": "Reflections on Trusting Trust", "url": "https://example.com/trust",
+                 "domain": "example.com", "year": 1984, "signals": ["posted to Hacker News 4 times, 2,000 points in all"],
+                 "topics": ["security"], "minutes": 8, "kind": "article",
+                 "discussion": "https://news.ycombinator.com/item?id=99"},
+                {"id": "classic-bad", "title": "Bad classic", "url": "javascript:alert(2)", "year": 2000,
+                 "signals": [], "topics": ["security"], "minutes": 8, "kind": "article"}]
+    return {"version": 2, "date": now.date().isoformat(), "generated_at": iso(now),
+            "next_refresh_at": iso(now + dt.timedelta(hours=next_refresh_hours)),
+            "considered": 300, "source_count": 80, "topics": TOPICS, "picks": picks, "classics": classics}
 
 
 class Server:
@@ -135,12 +143,16 @@ def test_shows_best_reads_for_chosen_topics(page, site):
     setup(page)
     assert titles(page) == ["AI read 0", "AI read 1", "AI read 2"]
     assert page.locator("h1#today-date").inner_text().strip() != ""
-    assert page.inner_text("#headline") == "The headline of the day."
+    assert page.locator("h1#today-date").get_attribute("data-shadow") == page.inner_text("h1#today-date")
+    assert page.locator("#reads .signals").first.inner_text() == "400 points on Hacker News, picked by Import AI"
+    assert page.locator("#reads .meta").first.inner_text().startswith("example.com")
     link = page.locator("#reads .read h2 a").first
     assert link.get_attribute("target") == "_blank"
     assert "noopener" in link.get_attribute("rel")
     assert page.locator("#reads .meta a:has-text('Discussion')").count() == 3
-    assert "Picked by Claude from 80 sources" in page.inner_text("#foot-sources")
+    assert "Ranked by people, not AI" in page.inner_text("#foot-sources")
+    assert "80 sources" in page.inner_text("#foot-sources")
+    assert page.locator(".classic").count() == 0  # no classic in these topics
     assert page.errors == []
 
 
@@ -157,7 +169,7 @@ def test_read_state_persists_and_done_message_appears(page, site):
     page.click("#reads .tick")
     page.wait_for_function("document.querySelector('#reads .tick').getAttribute('aria-pressed') === 'true'")
     assert page.locator("#done").is_visible()
-    assert page.inner_text("#done").startswith("That's today. New list in")
+    assert page.inner_text("#done").startswith("All read. Next pull in")
     page.reload()
     page.wait_for_selector("#view-today:not([hidden])")
     assert page.locator("#reads .read").first.get_attribute("class") == "read is-read"
@@ -203,6 +215,35 @@ def test_empty_topics_offer_everything(page, site):
     page.click("#empty-all")
     assert len(titles(page)) == 3
     assert page.locator("#notice").is_visible()
+
+
+def test_one_classic_a_day_in_your_topics(page, site):
+    page.goto(site.url)
+    setup(page, topics=("AI and coding agents", "Security"))
+    assert titles(page) == ["AI read 0", "AI read 1", "Reflections on Trusting Trust"]
+    classic = page.locator("#reads .read.classic")
+    assert classic.count() == 1
+    assert classic.locator(".classic-label").inner_text() == "Classic from 1984"
+    assert classic.locator(".signals").inner_text() == "Posted to Hacker News 4 times, 2,000 points in all"
+    classic.locator(".tick").click()
+    assert classic.get_attribute("class") == "read classic is-read"
+    page.click("#more")
+    assert titles(page)[-1] == "Reflections on Trusting Trust"
+    assert "Bad classic" not in titles(page)
+    assert page.errors == []
+
+
+def test_no_classic_for_one_read_a_day(page, site):
+    page.goto(site.url)
+    setup(page, topics=("AI and coding agents", "Security"), amount="1")
+    assert titles(page) == ["AI read 0"]
+
+
+def test_reads_without_votes_show_their_summary(page, site):
+    page.goto(site.url)
+    setup(page, topics=("DevOps and SRE",))
+    assert page.locator("#reads .excerpt").first.inner_text() == "What on-call taught us, part 0."
+    assert page.locator("#reads .signals").count() == 0
 
 
 def test_video_shows_watch_time(page, site):
