@@ -5,8 +5,8 @@ A web page that refreshes once a day and shows engineers a few things worth read
 ## How it works
 
 ```
- public sources                     once a day (GitHub Actions, 00:30 UTC)           any static host
- ──────────────                     ──────────────────────────────────────           ───────────────
+ public sources                     once a day (GitHub Actions, 00:30 UTC)           GitHub Pages
+ ──────────────                     ──────────────────────────────────────           ────────────
  Hacker News, Lobsters,             pipeline/build.py                                site/
  GitHub Trending, DEV, Mastodon     1. fetch everything (sources.py)        ──▶      index.html + app.js
  10 newsletter editors      ──▶     2. score: votes per site, agreement,             data/today.json
@@ -49,17 +49,12 @@ Nothing is required: no API keys. Optional repo secrets (Settings > Secrets and 
 | Name | What it does |
 |---|---|
 | `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET` | Adds 16 subreddits through Reddit's official API. Create a "script" app at reddit.com/prefs/apps. Reddit blocks anonymous access. |
-| `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` | Turns on the deploy step in the daily workflow. |
 
 ## Deploy
 
-Nothing is deployed yet. The daily workflow builds the site and uploads it as an artifact named `site`. To go live, pick one:
+The daily workflow publishes `site/` to GitHub Pages: no tokens or secrets. Turn it on once with Settings > Pages > Source: GitHub Actions (free plans need a public repo), then run the workflow by hand from the Actions tab (Daily build > Run workflow) to get the first list. With a custom domain the 404 page's links are adjusted automatically.
 
-- **Vercel:** create a project, then add the three `VERCEL_*` secrets. Security headers come from `site/vercel.json`.
-- **Netlify or Cloudflare Pages:** publish the `site/` folder from the workflow. Headers come from `site/_headers`.
-- **GitHub Pages:** needs a public repo or a paid plan for private ones.
-
-Run the workflow by hand from the Actions tab (Daily build > Run workflow) to get the first list.
+GitHub Pages can't send custom headers, so the page sets its Content-Security-Policy in a meta tag. To host elsewhere, publish the same `site/` folder: `site/vercel.json` (Vercel) and `site/_headers` (Netlify, Cloudflare Pages) add the full set of security headers.
 
 ## Sources and tuning
 
