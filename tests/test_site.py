@@ -42,7 +42,8 @@ def make_data(next_refresh_hours=6.0):
     for n in range(2):
         picks.append({"id": f"ops{n}", "title": f"Ops read {n}", "url": f"https://example.com/ops/{n}",
                       "domain": "example.com", "source": "Charity Majors", "signals": [],
-                      "excerpt": f"What on-call taught us, part {n}.", "topics": ["devops"], "minutes": 7,
+                      "excerpt": f"What on-call taught us, part {n}.", "topics": ["devops"],
+                      "minutes": 7 if n == 0 else None,
                       "kind": "article", "score": 6})
     picks.append({"id": "evil", "title": "Evil link", "url": "javascript:alert(1)", "source": "X",
                   "signals": [], "topics": ["ai"], "minutes": 1, "kind": "article", "score": 10})
@@ -250,6 +251,13 @@ def test_video_shows_watch_time(page, site):
     page.goto(site.url)
     setup(page, topics=("Web and frontend",))
     assert "9 min watch" in page.inner_text("#reads .meta")
+
+
+def test_reading_time_shows_only_when_measured(page, site):
+    page.goto(site.url)
+    setup(page, topics=("DevOps and SRE",))
+    assert "7 min read" in page.locator("#reads li", has_text="Ops read 0").locator(".meta").inner_text()
+    assert "min read" not in page.locator("#reads li", has_text="Ops read 1").locator(".meta").inner_text()
 
 
 def test_error_state_and_retry(page, site):

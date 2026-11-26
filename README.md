@@ -37,6 +37,7 @@ Pick your topics and how many reads you want (1, 3 or 5). Every morning the page
 - **1, 3 or 5 reads a day.** With 3 or 5, one of them is a classic.
 - **Every read says why it is there**, in plain facts: "1,285 points on Hacker News, 38 votes on Lobsters, picked by SRE Weekly".
 - **Nothing repeats.** A link shown in the last 14 days is not shown again, and each classic appears only once.
+- **Real reading times.** Every article is fetched once and its words counted. If a page can't be measured (a paywall, a login wall, a page drawn by JavaScript), no time is shown rather than a guess.
 - **Read state.** Tick a read off and its link turns purple. Keyboard: `j` and `k` to move, `o` to open, `x` to mark read.
 - **Light and dark themes.** Dark follows the system until the reader picks one.
 - **Small and fast.** Plain HTML, CSS and JavaScript: no framework, no build step, no third-party requests.
@@ -49,7 +50,8 @@ No model decides anything. Every score comes from people.
 - **Agreement.** The same link on Hacker News and Lobsters, or in two newsletters, or on an expert's blog and Hacker News, gets a bonus for every extra independent place.
 - **Editors' picks.** Every link in the latest issue of hand-curated newsletters (SRE Weekly, Golang Weekly, This Week in Rust, PyCoder's Weekly, Import AI and others) counts as a vote from a human editor. Sponsor blocks and click trackers are stripped.
 - **Expert blogs** (Julia Evans, Dan Luu, Brendan Gregg, Charity Majors and others) start high because they post rarely and well. Company marketing and firehoses (Medium tags, general news) start low.
-- **Noise rules.** Politics, hiring threads and non-English posts are dropped. Clickbait titles and flame wars (far more comments than votes) are pushed down. Old blog posts slowly sink. Each extra pick from the same source costs a little, so no single site floods the list.
+- **News is not a read.** Stories from general news and consumer tech sites (BBC, The Verge and others) need a vote on Hacker News or Lobsters or an editor's pick to get in, and even then they start lower.
+- **Noise rules.** Politics, hiring threads, sponsor posts and non-English posts are dropped. Clickbait titles and flame wars (far more comments than votes) are pushed down. Old blog posts slowly sink. Each extra pick from the same source costs a little, so no single site floods the list.
 
 **Classics.** On Hacker News, a repost of an old article gets its year in the title, like "Choose Boring Technology (2015)". If people still upvote it years later, it held up. The build collects those (about 6,000 posts), merges reposts of the same link and offers one per topic each day.
 
@@ -64,7 +66,8 @@ No model decides anything. Every score comes from people.
  70+ blogs and news feeds              noise rules (rank.py)
  Reddit (optional)                  3. pick a varied list, 6 per topic at most
  Hacker News reposts (classics)     4. one classic per topic (classics.py)
-                                    5. write site/data/today.json
+                                    5. measure reading time (length.py)
+                                    6. write site/data/today.json
 ```
 
 There is no server and no database. A scheduled GitHub Actions job runs the Python pipeline, which writes one JSON file of about 50 picks and 10 classics. The static page loads that file and filters it in the browser for the reader's topics. The list of links already shown is kept in the Actions cache between runs.
@@ -102,7 +105,7 @@ Sources and ranking are tuned in `pipeline/config.py`:
 
 - `FEEDS`: blogs and news. Each entry is `(name, feed_url, [topics], prior, kind)`. `prior` (0 to 10) is where its posts start: 7 for experts who post rarely, 3 to 4 for firehoses.
 - `EDITORS`: curated newsletters whose links count as editors' picks.
-- `VOTE_SCALE`, `AGREEMENT_BONUS`, the penalties and the noise word lists: the whole ranking, in one place.
+- `VOTE_SCALE`, `AGREEMENT_BONUS`, the penalties, `GENERAL_NEWS` and the noise word lists: the whole ranking, in one place.
 - `REFRESH_UTC`: when the page tells readers the next list arrives. Keep it in sync with the cron in `.github/workflows/daily.yml`.
 
 ## Deployment
@@ -131,7 +134,7 @@ python -m pytest                     # unit and browser tests
 PW_CHANNEL=chrome python -m pytest   # use installed Chrome instead of a downloaded Chromium
 ```
 
-The unit tests cover parsing every source, editor-link extraction (sponsors, trackers, navigation), scoring, agreement, noise rules, topic tagging, selection, classics and the build. The browser tests (Playwright) cover first-visit setup, topic filtering, the classic slot, read state across reloads, show more, changing topics, the empty, error and late states, keyboard shortcuts, blocked storage, unsafe links, themes and the mobile layout. CI runs both on every push and pull request.
+The unit tests cover parsing every source, editor-link extraction (sponsors, trackers, navigation), scoring, agreement, noise rules, general news, topic tagging, selection, classics, reading time and the build. The browser tests (Playwright) cover first-visit setup, topic filtering, the classic slot, read state across reloads, show more, changing topics, the empty, error and late states, keyboard shortcuts, blocked storage, unsafe links, themes and the mobile layout. CI runs both on every push and pull request.
 
 ## Project layout
 
@@ -141,6 +144,7 @@ pipeline/
   sources.py     fetchers and parsers for each source, editor-link extraction
   rank.py        filtering, topic tagging, scoring and selection
   classics.py    Hacker News year-tagged reposts
+  length.py      reading time from each article's own text
   build.py       runs the pipeline and writes site/data/today.json
 site/
   index.html     the page

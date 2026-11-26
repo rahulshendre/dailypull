@@ -20,7 +20,7 @@ import sys
 import time
 from pathlib import Path
 
-from . import classics, config, rank, sources
+from . import classics, config, length, rank, sources
 
 log = logging.getLogger("dailypull")
 
@@ -100,7 +100,7 @@ def prepare(raw: list[dict], history: dict, now: float | None = None) -> list[di
     return best
 
 
-def pick_item(sel: dict) -> dict:
+def pick_item(sel: dict, minutes: dict | None = None) -> dict:
     c = sel["cand"]
     item = {
         "id": c["cid"],
@@ -111,7 +111,7 @@ def pick_item(sel: dict) -> dict:
         "signals": rank.signals(c),
         "excerpt": excerpt(c),
         "topics": sel["topics"],
-        "minutes": rank.estimate_minutes(c),
+        "minutes": (minutes or {}).get(c["url"]),
         "kind": c["kind"],
         "score": sel["score"],
     }
@@ -120,7 +120,7 @@ def pick_item(sel: dict) -> dict:
     return item
 
 
-def classic_item(c: dict) -> dict:
+def classic_item(c: dict, minutes: dict | None = None) -> dict:
     if c.get("reposts", 1) > 1:
         signal = f"posted to Hacker News {c['reposts']} times, {c['total']:,} points in all"
     else:
@@ -133,14 +133,15 @@ def classic_item(c: dict) -> dict:
         "year": c["year"],
         "signals": [signal],
         "topics": c["topics"],
-        "minutes": 10 if c["kind"] == "paper" else 8,
+        "minutes": (minutes or {}).get(c["url"]),
         "kind": c["kind"],
         "discussion": c["discussion"],
     }
 
 
 def assemble(selected: list[dict], classic_picks: list[dict], considered: int, status: dict,
-             now: dt.datetime) -> dict:
+             now: dt.datetime, minutes: dict | None = None) -> dict:
+    """The page data. `minutes` is {url: reading minutes}; links without one show no time."""
     ok_sources = sorted(k for k, v in status.items() if v.startswith("ok"))
     return {
         "version": 2,
@@ -150,8 +151,8 @@ def assemble(selected: list[dict], classic_picks: list[dict], considered: int, s
         "considered": considered,
         "source_count": len(ok_sources),
         "topics": config.TOPICS,
-        "picks": [pick_item(s) for s in selected],
-        "classics": [classic_item(c) for c in classic_picks],
+        "picks": [pick_item(s, minutes) for s in selected],
+        "classics": [classic_item(c, minutes) for c in classic_picks],
     }
 
 
@@ -190,7 +191,9 @@ def main(argv: list[str] | None = None) -> int:
 
     selected = rank.select(cands)
     classic_picks = classics.pick(old, history["classics"])
-    doc = assemble(selected, classic_picks, len(cands), status, now)
+    minutes = asyncio.run(length.measure([s["cand"] for s in selected] + classic_picks))
+    log.info("reading time measured for %d of %d links", len(minutes), len(selected) + len(classic_picks))
+    doc = assemble(selected, classic_picks, len(cands), status, now, minutes)
 
     write_json(args.out / "today.json", doc)
     save_history(args.history, history, [p["url"] for p in doc["picks"]], [c["url"] for c in doc["classics"]],

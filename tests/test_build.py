@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from pipeline import build, classics, config, sources
+from pipeline import build, classics, config, length, sources
 
 ROOT = Path(__file__).resolve().parent.parent
 WORDS = ["Kubernetes upgrade", "Postgres vacuum", "LLM agents", "Linux kernel", "Rust compiler",
@@ -40,8 +40,13 @@ def fake_sources(monkeypatch):
     async def gather_classics():
         return fake_classics(), {"Hacker News classics": "ok 10"}
 
+    async def measure(links):
+        # Pretend only the first link could be measured.
+        return {links[0]["url"]: 4} if links else {}
+
     monkeypatch.setattr(sources, "gather_all", gather_all)
     monkeypatch.setattr(classics, "gather", gather_classics)
+    monkeypatch.setattr(length, "measure", measure)
     return items
 
 
@@ -56,6 +61,10 @@ def test_build_writes_valid_page_data(tmp_path, fake_sources):
     assert 10 <= len(doc["picks"]) <= config.MAX_PICKS
     scores = [p["score"] for p in doc["picks"]]
     assert scores == sorted(scores, reverse=True)
+    # Reading time only where it was measured, never a default.
+    assert doc["picks"][0]["minutes"] == 4
+    assert all(p["minutes"] is None for p in doc["picks"][1:])
+    assert all(c["minutes"] is None for c in doc["classics"])
     for p in doc["picks"]:
         assert p["url"].startswith("https://example.com/story/")
         assert p["domain"] == "example.com"

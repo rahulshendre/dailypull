@@ -128,3 +128,33 @@ def test_select_skips_items_without_a_topic():
     c = cand("Cornwall market news")
     c["base"], c["score"] = 9.0, 9.0
     assert rank.select([c]) == []
+
+
+# ---------- general news ----------
+
+def test_general_news_needs_engineers_to_vouch_for_it():
+    bbc = cand("Christmas market cancels bookings after AI backlash", source="Mastodon",
+               url="https://www.bbc.co.uk/news/articles/x1")
+    bbc["votes"] = {"Mastodon": 93}
+    assert not rank.keep(bbc)
+
+    verge = cand("Bureau discloses cybersecurity incident", source="Hacker News", url="https://www.theverge.com/x")
+    verge["votes"] = {"Hacker News": 300}
+    assert rank.keep(verge)
+
+    edited = cand("Outage report from a newspaper", source="SRE Weekly", url="https://www.nytimes.com/x",
+                  editors=["SRE Weekly"])
+    assert rank.keep(edited)
+
+
+def test_general_news_starts_lower():
+    blog = cand("Kubernetes upgrade notes", url="https://example.com/k8s", prior=6.0)
+    news = cand("Kubernetes upgrade notes", url="https://news.bbc.co.uk/k8s", prior=6.0)
+    assert rank.score(blog) - rank.score(news) == config.GENERAL_NEWS_PENALTY
+    assert not rank.is_general_news("https://bbc-engineering.example.com/post")
+
+
+def test_sponsor_posts_are_dropped():
+    assert not rank.keep(cand("Sponsor: AnyPost"))
+    assert not rank.keep(cand("[Sponsored] Try our database"))
+    assert rank.keep(cand("Sponsorship models in open source"))

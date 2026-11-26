@@ -108,7 +108,8 @@
   const tidy = (p) => ({
     ...p,
     score: Number(p.score) || 0,
-    minutes: Math.max(1, Number(p.minutes) || 5),
+    // Measured by the build; missing when the article couldn't be measured. Never guessed.
+    minutes: Number(p.minutes) >= 1 ? Math.round(Number(p.minutes)) : null,
     signals: Array.isArray(p.signals) ? p.signals.filter((s) => typeof s === "string") : [],
     excerpt: typeof p.excerpt === "string" ? p.excerpt : "",
     domain: typeof p.domain === "string" ? p.domain : "",
@@ -255,9 +256,9 @@
   }
 
   function lengthLabel(p) {
-    if (p.kind === "video") return `${p.minutes} min watch`;
     if (p.kind === "repo") return "Repo";
-    return `${p.minutes} min read`;
+    if (p.kind === "video") return p.minutes ? `${p.minutes} min watch` : "Video";
+    return p.minutes ? `${p.minutes} min read` : "";
   }
 
   function newTabLink(text, href, className) {
@@ -300,7 +301,8 @@
 
     const meta = el("p", "meta");
     if (p.domain) meta.append(el("span", "", p.domain));
-    meta.append(el("span", "", lengthLabel(p)));
+    const length = lengthLabel(p);
+    if (length) meta.append(el("span", "", length));
     if (["discussion", "release", "paper", "newsletter"].includes(p.kind)) {
       meta.append(el("span", "", p.kind[0].toUpperCase() + p.kind.slice(1)));
     }

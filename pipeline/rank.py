@@ -14,6 +14,7 @@ import bisect
 import re
 import time
 from collections import defaultdict
+from urllib.parse import urlparse
 
 from . import config
 
@@ -100,8 +101,20 @@ def is_english(c: dict) -> bool:
     return not (other >= 2 and other > en)
 
 
+def is_general_news(url: str) -> bool:
+    host = urlparse(url).netloc.lower().split(":")[0]
+    return any(host == d or host.endswith("." + d) for d in config.GENERAL_NEWS)
+
+
+def engineers_vouched(c: dict) -> bool:
+    """Engineers voted for it on Hacker News or Lobsters, or a newsletter editor picked it."""
+    return bool(c["editors"]) or any(c["votes"].get(site, 0) > 0 for site in config.ENGINEER_VOTES)
+
+
 def keep(c: dict) -> bool:
     title = c["title"]
+    if is_general_news(c["url"]) and not engineers_vouched(c):
+        return False
     return (len(title) >= 8 and not _POLITICS.search(title) and not _NOISE.search(title)
             and is_english(c))
 
@@ -139,6 +152,8 @@ def score(c: dict, now: float | None = None) -> float:
         s -= config.FLAMEWAR_PENALTY
     if not c["votes"] and c.get("published"):
         s -= config.AGE_PENALTY_PER_DAY * max(0.0, (now - c["published"]) / 86400)
+    if is_general_news(c["url"]):
+        s -= config.GENERAL_NEWS_PENALTY
     return round(max(0.0, min(10.0, s)), 2)
 
 
@@ -149,14 +164,6 @@ def signals(c: dict) -> list[str]:
         names = c["editors"]
         out.append("picked by " + (names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1]))
     return out
-
-
-def estimate_minutes(c: dict) -> int:
-    if c["kind"] == "repo":
-        return 3
-    if c["kind"] in ("discussion", "paper"):
-        return 10
-    return 6
 
 
 # ---------- selection ----------

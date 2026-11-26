@@ -89,7 +89,6 @@ FEEDS = [
     ("One Useful Thing", "https://www.oneusefulthing.org/feed", ["ai"], 5.5),
     ("Ahead of AI", "https://magazine.sebastianraschka.com/feed", ["ai"], 6.0),
     ("Engineering Enablement", "https://newsletter.getdx.com/feed", ["career", "devops"], 5.0),
-    ("Console.dev", "https://console.dev/rss.xml", ["oss"], 5.5, "newsletter"),
     # Company engineering blogs
     ("Meta Engineering", "https://engineering.fb.com/feed/", ["backend", "systems"], 5.5),
     ("Stripe", "https://stripe.com/blog/feed.rss", ["backend"], 6.0),
@@ -205,10 +204,10 @@ SKIP_LINK_HOSTS = {
 VOTE_SCALE = {
     "Hacker News": (4.0, 5.0),
     "Lobsters": (4.0, 5.0),
-    "Mastodon": (3.0, 4.5),
+    "Mastodon": (2.0, 3.0),    # trending links on tech servers: a lot of general news
     "Reddit": (3.0, 4.5),
     "GitHub Trending": (2.5, 4.0),
-    "DEV": (1.5, 3.5),
+    "DEV": (1.0, 2.5),         # mostly beginner posts; the best of a day still makes it
 }
 AGREEMENT_BONUS = 1.2      # per extra independent place (site, editor, blog) with the same link
 AGREEMENT_MAX = 4.0
@@ -221,13 +220,35 @@ HN_MIN_POINTS = 60         # ...that at least this many people voted for
 PICKS_PER_TOPIC = 6
 MAX_PICKS = 50
 
+# Reading time: each picked article is fetched once and its words counted (pipeline/length.py).
+WORDS_PER_MINUTE = 230
+MIN_ARTICLE_WORDS = 200    # less than this is a login wall, a paywall or a JavaScript page: show no time
+LENGTH_TIMEOUT = 15.0      # seconds per page
+LENGTH_CONCURRENCY = 10
+LENGTH_MAX_BYTES = 3_000_000
+
 # Dropped outright.
 # Checked against titles only ("leader election" in a Raft post is fine, so no bare "election").
 POLITICS = ["trump", "biden", "kamala", "presidential", "midterms", "electoral", "republican", "republicans", "democrat",
             "democrats", "gop", "maga", "white house", "putin", "netanyahu", "gaza", "hamas", "zelensky",
             "senator", "congressman", "congresswoman"]
 NOISE_TITLES = [r"who is hiring", r"who wants to be hired", r"seeking freelancer", r"^security updates for ",
-                r"^\[?sponsored\]?\b"]
+                r"^\[?sponsor(ed)?\]?\b"]
+
+# General news and consumer tech sites. Their stories reach engineers' feeds, but they are news,
+# not reads: kept only when engineers voted for them on Hacker News or Lobsters or an editor
+# picked them, and even then they start lower. Subdomains count too.
+GENERAL_NEWS = {
+    "bbc.co.uk", "bbc.com", "theguardian.com", "nytimes.com", "washingtonpost.com", "cnn.com", "reuters.com",
+    "apnews.com", "npr.org", "nbcnews.com", "cbsnews.com", "abcnews.go.com", "foxnews.com", "aljazeera.com",
+    "independent.co.uk", "telegraph.co.uk", "dailymail.co.uk", "sky.com", "euronews.com", "dw.com",
+    "france24.com", "theatlantic.com", "newyorker.com", "vox.com", "time.com", "usatoday.com", "latimes.com",
+    "politico.com", "politico.eu", "axios.com", "bloomberg.com", "wsj.com", "ft.com", "economist.com",
+    "cnbc.com", "businessinsider.com", "forbes.com", "fortune.com", "theverge.com", "engadget.com",
+    "gizmodo.com", "mashable.com", "cnet.com", "techradar.com", "techdirt.com", "futurism.com",
+}
+ENGINEER_VOTES = ("Hacker News", "Lobsters")
+GENERAL_NEWS_PENALTY = 2.0
 # Lowered, not dropped.
 CLICKBAIT = [r"^\d+\s+(things|ways|tips|reasons|tools|mistakes|habits|secrets|tricks|lessons|libraries|books)\b",
              r"you won.?t believe", r"blow your mind", r"must[- ]know", r"nobody tells you",
