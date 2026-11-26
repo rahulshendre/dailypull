@@ -3,6 +3,14 @@ name = "dailypull"
 version = "1.0.0"
 description = "A daily page of a few good reads for engineers. No login, no email, no noise."
 requires-python = ">=3.11"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+
+[project.urls]
+Homepage = "https://rahulshendre.github.io/dailypull/"
+Source = "https://github.com/rahulshendre/dailypull"
+Issues = "https://github.com/rahulshendre/dailypull/issues"
 
 [tool.pytest.ini_options]
 pythonpath = ["."]

@@ -73,7 +73,14 @@ def test_build_writes_valid_page_data(tmp_path, fake_sources):
     assert len(saved["shown"]) == len(doc["picks"])
     assert len(saved["classics"]) == len(doc["classics"])
 
+    # A rerun on the same day gives the same list.
+    assert build.main(["--out", str(out), "--history", str(history)]) == 0
+    rerun = json.loads((out / "today.json").read_text())
+    assert [p["url"] for p in rerun["picks"]] == [p["url"] for p in doc["picks"]]
+
     # The next day the same links and classics are not picked again.
+    yesterday = (dt.datetime.now(dt.timezone.utc).date() - dt.timedelta(days=1)).isoformat()
+    history.write_text(json.dumps({key: {u: yesterday for u in seen} for key, seen in saved.items()}))
     assert build.main(["--out", str(out), "--history", str(history)]) == 0
     second = json.loads((out / "today.json").read_text())
     assert not {p["url"] for p in second["picks"]} & {p["url"] for p in doc["picks"]}
@@ -106,6 +113,14 @@ def test_old_history_files_still_load(tmp_path):
     assert build.load_history(path) == {"shown": {"https://a.example": "2026-11-20"}, "classics": {}}
     path.write_text("[1, 2]")
     assert build.load_history(path) == {"shown": {}, "classics": {}}
+
+
+def test_rerun_on_the_same_day_replaces_that_days_list(tmp_path):
+    path = tmp_path / "h.json"
+    path.write_text(json.dumps({"shown": {"https://a.example": "2026-11-25", "https://b.example": "2026-11-26"},
+                                "classics": {"https://c.example": "2026-11-26"}}))
+    assert build.load_history(path, dt.date(2026, 11, 26)) == {"shown": {"https://a.example": "2026-11-25"},
+                                                                "classics": {}}
 
 
 def test_next_refresh_is_next_0030_utc():

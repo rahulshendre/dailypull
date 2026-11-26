@@ -53,14 +53,21 @@ def next_refresh(now: dt.datetime) -> dt.datetime:
 
 # ---------- history: what was already shown ----------
 
-def load_history(path: Path) -> dict:
+def load_history(path: Path, today: dt.date | None = None) -> dict:
+    """Links shown before, as {"shown": {url: date}, "classics": {url: date}}. With `today`,
+    entries from today are left out, so a rerun on the same day replaces that day's list
+    instead of skipping everything it showed."""
     try:
         data = json.loads(path.read_text())
     except (FileNotFoundError, json.JSONDecodeError):
         data = {}
     if not isinstance(data, dict):
         data = {}
-    return {key: data[key] if isinstance(data.get(key), dict) else {} for key in ("shown", "classics")}
+    history = {key: data[key] if isinstance(data.get(key), dict) else {} for key in ("shown", "classics")}
+    if today:
+        history = {key: {u: d for u, d in seen.items() if str(d) < today.isoformat()}
+                   for key, seen in history.items()}
+    return history
 
 
 def save_history(path: Path, history: dict, picked_urls: list[str], classic_urls: list[str],
@@ -173,7 +180,7 @@ def main(argv: list[str] | None = None) -> int:
     for name, s in sorted(status.items()):
         log.info("source %-28s %s", name, s)
 
-    history = load_history(args.history)
+    history = load_history(args.history, now.date())
     cands = prepare(raw, history, time.time())
     log.info("%d raw items, %d candidates after dedupe, filters and history", len(raw), len(cands))
     if len(cands) < config.MIN_CANDIDATES:
