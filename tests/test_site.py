@@ -303,3 +303,31 @@ def test_mobile_layout_has_no_horizontal_scroll(browser, site):
     setup(pg)
     assert pg.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
     ctx.close()
+
+
+def test_theme_toggle_switches_and_is_remembered(page, site):
+    page.goto(site.url)
+    setup(page)
+    background = lambda: page.evaluate("getComputedStyle(document.body).backgroundColor")
+    assert background() == "rgb(255, 255, 255)"
+    assert page.inner_text("#theme-toggle") == "Dark"
+    page.click("#theme-toggle")
+    assert page.evaluate("document.documentElement.dataset.theme") == "dark"
+    assert background() == "rgb(0, 0, 0)"
+    assert page.inner_text("#theme-toggle") == "Light"
+    page.reload()
+    page.wait_for_selector("#view-today:not([hidden])")
+    assert background() == "rgb(0, 0, 0)"
+    page.click("#theme-toggle")
+    assert background() == "rgb(255, 255, 255)"
+    assert page.errors == []
+
+
+def test_dark_system_theme_is_followed_until_the_reader_picks(browser, site):
+    ctx = browser.new_context(color_scheme="dark")
+    pg = ctx.new_page()
+    pg.goto(site.url)
+    pg.wait_for_selector("#view-setup:not([hidden])")
+    assert pg.evaluate("getComputedStyle(document.body).backgroundColor") == "rgb(0, 0, 0)"
+    assert pg.inner_text("#theme-toggle") == "Light"
+    ctx.close()

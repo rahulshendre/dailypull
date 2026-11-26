@@ -28,7 +28,7 @@ A web page that refreshes once a day and shows engineers a few things worth read
 
 **One classic a day.** On Hacker News, a repost of an old article gets its year in the title, like "Choose Boring Technology (2015)". If people still upvote it years later, it held up. The build collects those (about 6,000) and offers one per topic each day, each only once. Readers who take 3 or 5 reads a day get one classic among them.
 
-**The page** (`site/`) is plain HTML, CSS and JavaScript with no build step and no third-party requests. On first visit it asks for topics and how many reads a day (1, 3 or 5). Topics and read state live in `localStorage`; nothing leaves the browser. The look is 1-bit: ink and paper only, dithered shading, one pixel font ([Departure Mono](https://departuremono.com), SIL Open Font License, see `site/assets/fonts/`).
+**The page** (`site/`) is plain HTML, CSS and JavaScript with no build step and no third-party requests. On first visit it asks for topics and how many reads a day (1, 3 or 5). Topics and read state live in `localStorage`; nothing leaves the browser. The look is plain HTML on purpose: serif text, blue links that turn purple once read, native-looking checkboxes and buttons. Light and dark themes: dark follows the system until the reader picks one with the toggle in the header.
 
 **Safe to fail.** One broken source never stops the run. If fewer than 40 candidates come back, the build exits with an error and nothing is published, so yesterday's page stays up.
 

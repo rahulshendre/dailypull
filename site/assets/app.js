@@ -18,6 +18,7 @@
   const DEFAULT_AMOUNT = 3;
   const PREFS_KEY = "dp.prefs.v1";
   const READ_KEY = "dp.read.v1";
+  const THEME_KEY = "dp.theme.v1";  // also read by theme.js before the page paints
   const DATA_URL = "data/today.json";
   const LATE_AFTER_MS = 3 * 60 * 60 * 1000;
   const KEEP_READ_MS = 30 * 24 * 60 * 60 * 1000;
@@ -225,11 +226,12 @@
     return d ? d.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" }) : "";
   }
 
-  // "Thursday" on one line, "26 November" (or "November 26") on the next.
+  // "Thursday, November 26". The day and month never split across lines.
   function headingDate(iso) {
     const d = dateOf(iso);
     if (!d) return "";
-    return `${d.toLocaleDateString(undefined, { weekday: "long" })}\n${d.toLocaleDateString(undefined, { day: "numeric", month: "long" })}`;
+    const dayMonth = d.toLocaleDateString(undefined, { day: "numeric", month: "long" }).replace(/ /g, "\u00a0");
+    return `${d.toLocaleDateString(undefined, { weekday: "long" })}, ${dayMonth}`;
   }
 
   function untilNext() {
@@ -374,6 +376,24 @@
     updateDone();
   }
 
+  // ---------- theme ----------
+
+  const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
+  const currentTheme = () => document.documentElement.dataset.theme || (darkQuery.matches ? "dark" : "light");
+
+  function paintThemeToggle() {
+    const next = currentTheme() === "dark" ? "light" : "dark";
+    const button = $("theme-toggle");
+    button.textContent = next === "dark" ? "Dark" : "Light";
+    button.setAttribute("aria-label", `Switch to the ${next} theme`);
+  }
+
+  function setTheme(theme) {
+    document.documentElement.dataset.theme = theme;
+    store.set(THEME_KEY, theme);
+    paintThemeToggle();
+  }
+
   // ---------- routing and events ----------
 
   function route() {
@@ -388,6 +408,8 @@
 
   function bind() {
     $("setup-form").addEventListener("submit", saveSetup);
+    $("theme-toggle").addEventListener("click", () => setTheme(currentTheme() === "dark" ? "light" : "dark"));
+    darkQuery.addEventListener("change", paintThemeToggle);
     $("topic-grid").addEventListener("change", () => { $("setup-error").hidden = true; });
     $("setup-cancel").addEventListener("click", () => route());
     $("edit-topics").addEventListener("click", openSetup);
@@ -457,11 +479,17 @@
     window.addEventListener("storage", (event) => {
       if (event.key === PREFS_KEY) prefs = loadPrefs();
       if (event.key === READ_KEY) readMap = loadRead();
+      if (event.key === THEME_KEY) {
+        const theme = store.get(THEME_KEY, null);
+        if (theme === "dark" || theme === "light") document.documentElement.dataset.theme = theme;
+        paintThemeToggle();
+      }
       if ((event.key === PREFS_KEY || event.key === READ_KEY) && !$("view-today").hidden) route();
     });
   }
 
   buildSetup();
+  paintThemeToggle();
   bind();
   route();
 })();

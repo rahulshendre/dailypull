@@ -8,13 +8,13 @@
 <title>Daily Pull: a few good reads for engineers, every day</title>
 <meta name="description" content="A few things worth reading today in the topics you pick. Ranked by people, not AI. No account, no email, no feed to scroll.">
 <meta name="color-scheme" content="light dark">
-<meta name="theme-color" content="#000000" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
 <meta property="og:title" content="Daily Pull">
 <meta property="og:description" content="A few good reads for engineers, every day. Ranked by people, not AI. No account, no email, no noise.">
 <meta property="og:type" content="website">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-<link rel="preload" href="assets/fonts/DepartureMono.woff2" as="font" type="font/woff2" crossorigin>
+<script src="assets/theme.js"></script>
 <link rel="stylesheet" href="assets/style.css">
 <script src="assets/app.js" defer></script>
 </head>
@@ -23,7 +23,10 @@
 <header class="bar">
   <div class="bar-inner">
     <a class="mark" href="./"><span class="mark-arrow" aria-hidden="true">↓</span>daily pull</a>
-    <button class="bar-button" id="edit-topics" type="button" hidden>Topics</button>
+    <span class="bar-links">
+      <button class="bar-button" id="edit-topics" type="button" hidden>Topics</button>
+      <button class="bar-button" id="theme-toggle" type="button">Dark</button>
+    </span>
   </div>
 </header>
 
